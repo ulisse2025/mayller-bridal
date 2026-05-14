@@ -1,0 +1,369 @@
+================================================================================
+PRONOVIAS — WEBSITE BUSINESS INFORMATION ANALYSIS
+Source: https://www.pronovias.com/
+Date of analysis: May 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+1. BRAND NAME
+--------------------------------------------------------------------------------
+Pronovias
+
+Parent entity: Pronovias Group
+Sister brands (shown in top bar of the site):
+  - White One (whiteonebridal.com)
+  - Nicole (nicolemilano.com)
+  - St Patrick (sanpatrick.com)
+  - Ladybird (ladybird.nl/en)
+
+--------------------------------------------------------------------------------
+2. TAGLINE
+--------------------------------------------------------------------------------
+No single universal tagline is hardcoded on the site.
+
+The closest brand positioning line used across pages is:
+  "Luxury Wedding Dresses & Formal Guest Wear"
+  (used as the HTML page title and og:title on the homepage)
+
+Meta description (used as the SEO tagline):
+  "Discover our designer bridal gowns & event guest dresses, crafted with the
+  highest quality of fabrics and specially designed to capture your refined taste."
+
+--------------------------------------------------------------------------------
+3. ONE-LINER
+--------------------------------------------------------------------------------
+From homepage content and metadata, the effective brand one-liner is:
+
+  "Designer bridal gowns and event guest dresses crafted with the highest
+  quality fabrics, designed to capture your refined taste."
+
+Used in context of section text:
+  - "Bridal Dresses — Glow on your special day"
+  - "Special Occasions — Celebrating in absolute style"
+
+--------------------------------------------------------------------------------
+4. BRAND VISION / DNA
+--------------------------------------------------------------------------------
+Pronovias presents itself as a luxury bridal house with deep artisanal roots.
+Key brand pillars visible across the site:
+
+  - The Atelier: "Craftsmanship and design intertwine in our Barcelona workshop,
+    a unique creative haven where dreams are meticulously transformed into
+    exquisite pieces of art." (meta-description of /atelier page)
+
+  - La Maison: dedicated section on brand history and house identity
+    (URL: /la-maison)
+
+  - Pronovias for Protection: social responsibility initiative
+    (URL: /pronovias-for-protection)
+
+  - "The Art of Craftsmanship — A journey inside the creative heart of Pronovias"
+    (homepage scroll section linking to /atelier)
+
+  - "Pronovias for Protection" — sustainability/ethical angle
+
+Brand tone: refined, aspirational, emotionally connected, luxury without excess.
+Founded and headquartered in Barcelona, Spain.
+Presence: over 3,000 authorized retail locations worldwide.
+
+--------------------------------------------------------------------------------
+5. COLORS
+--------------------------------------------------------------------------------
+The site does not expose raw CSS variables through static extraction,
+but the visual identity is clearly identifiable from the brand aesthetic:
+
+  Primary:    White / Ivory — dominant across all backgrounds and dress visuals
+  Secondary:  Black — used for navigation text, CTAs, logo, typography
+  Accent:     Warm beige / champagne — implied by the product palette
+  Highlight:  Gold / champagne tones — visible in Atelier collection imagery
+
+Logo: black wordmark on white, minimal sans-serif
+Typography style: clean, uppercase for navigation items, lowercase for body text
+
+Notable: No bright colors or aggressive gradients. The entire palette is
+built on neutral elegance — white, black, cream, and soft gold.
+
+--------------------------------------------------------------------------------
+6. NAVIGATION MENU
+--------------------------------------------------------------------------------
+TOP BAR (above main nav):
+  - Brand switcher: Pronovias | White One | Nicole | St Patrick | Ladybird
+  - Rotating announcement bar:
+      "Discover your bridal style in just 2 minutes" → /find-your-style
+
+MAIN NAVIGATION ITEMS:
+  1. WEDDING DRESSES (/wedding-dresses)
+       > All Wedding Dresses
+       > New in (2027 collection)
+       By Silhouette:
+         Mermaid, A-line, Princess, Plus-Size, Short, Fit & Flare, Drop Waistline
+       By Style:
+         Beach, Elegant, Simple, Boho, Spanish, Reception, Convertible
+       By Features:
+         Custom, Long sleeves, Strapless, Off-the-shoulder, Lace, V-Neck,
+         Sweetheart Neckline
+       Collections:
+         Atelier Pronovias, Pronovias, Pronovias Privée,
+         Elisabetta Franchi x Pronovias, Separates by Pronovias
+
+  2. OCCASION DRESSES (/occasion-dresses)
+       By Silhouette: Long, Mermaid, Sheath, Tight
+       By Occasion: Summer, Evening, Formal, Cocktail, Prom, Red carpet
+       By Color: Pink, Black, Red, Blue, Green
+       By Features: Sequin, Long sleeves, Tulle, Lace, Straps, Halter
+       Collections: The Event Collection, Marchesa Notte for Pronovias
+
+  3. WEDDING GUEST DRESSES (/wedding-guest-dresses)
+       > View all
+       > Mother of the bride / groom
+       > Bridesmaids
+       > Sister of the bride / groom
+       > Formal
+
+  4. ACCESSORIES (/bridal-accessories)
+       > View all
+       > Veils, Jackets, Headpieces, Capes, Overskirts
+
+  5. INSPIRATION
+       Our DNA:
+         Pronovias for Protection, La Maison, The Atelier
+       Journal:
+         Customize your dress, The Edit
+       Presentations:
+         Pronovias Bridal Week, Fashion Show 2024, Virtual Trunk Show
+
+  6. IN-STORE EXPERIENCES (/in-store-events)
+
+  7. OUR BRIDES (/pronoviasbride)
+
+  8. HELP CENTER
+       FAQs, Contact, Financing Your Dress, Site Map, Share Your Wedding Pictures
+
+UTILITY ICONS (top right):
+  - My Account (/my-account/login/)
+  - Boutiques / Store Finder (/stores)
+  - My Favorites (wishlist)
+  - Search
+
+STICKY BUTTON (always visible in nav):
+  "Book your appointment" → /book-appointment
+
+FOOTER NAVIGATION:
+  Help Center: FAQs, Contact, Store Locator, Financing your dress,
+               Share your wedding pictures, Accessibility
+  The Company: About us, Business Inquiries, Careers, Press,
+               Brides for a cause, The safe journey of your dress
+  Legal Information: Terms of use, Legal privacy policy, Cookie policy,
+                     Counterfeit policy, Modern slavery act, Sustainability
+                     report, ADA policy, Pronovias Group, Ethical channel
+
+--------------------------------------------------------------------------------
+7. HERO SECTION
+--------------------------------------------------------------------------------
+The homepage hero is a full-screen VIDEO SLIDER (autoplay, desktop + mobile
+versions). It rotates through 5 hero slides:
+
+  SLIDE 1:
+    Headline: "NEW PRONOVIAS PRIVÉE 2027 COLLECTION"
+    Subhead:  "LŪCENTIA, AN ODE TO LIGHT"
+    Sub-line: "IN STORES NOW"
+    CTA:      "BOOK NOW" → /events/event/view/event_id/4450
+
+  SLIDE 2:
+    Headline: "NEW PRONOVIAS 2027 COLLECTION"
+    Subhead:  "IN HARMONY"
+    Sub-line: "IN STORES NOW"
+    CTA:      "BOOK NOW" → /events/event/view/event_id/4425
+
+  SLIDE 3:
+    Headline: "MADE FOR YOU"
+    Subhead:  "Customize Your Wedding Dress"
+    CTA:      "BOOK NOW" → /events/event/view/event_id/4409
+
+  SLIDE 4 (promotional):
+    Date:     "04.14.2026 - 05.31.2026"
+    Headline: "MID SEASON SALE"
+    Subhead:  "Up to 20% off your occasion dress"
+    CTA:      "Book Now" → /events/event/view/event_id/4434
+
+  SLIDE 5:
+    Collection: "The Event Collection"
+    Headline:   "THE SPRING CAPSULE"
+    Subhead:    "The essence of the season"
+    CTA:        "DISCOVER MORE"
+
+Each slide has separate desktop_video and mobile_video assets.
+
+--------------------------------------------------------------------------------
+8. SHADERS / BACKGROUNDS
+--------------------------------------------------------------------------------
+Visual treatment across the site (inferred from structure and brand):
+
+  - Hero section: full-screen video background, dark overlay/vignette
+    gradient applied over video to allow white text legibility
+  - Product sections: pure white or very light ivory backgrounds
+  - Editorial/Atelier sections: deep black or dark charcoal backgrounds
+    used for contrast with imagery (visible in "The Art of Craftsmanship" block)
+  - Section transitions: clean white-to-white, no aggressive gradients
+  - Announcement bar: minimal dark background with white text
+  - Footer: dark/black background with white/light text
+
+The overall approach is: minimal shaders, relying on full-bleed photography
+and videography rather than background effects. Overlays are subtle and
+used only where text needs contrast.
+
+--------------------------------------------------------------------------------
+9. SCROLL BEHAVIOR / SECTIONS (Homepage flow)
+--------------------------------------------------------------------------------
+Scroll sequence of the homepage from top to bottom:
+
+  1. Announcement bar (sticky rotating, dismissable)
+  2. Main navigation (sticky on scroll)
+  3. HERO — Full-screen video slider (5 slides with CTAs)
+  4. ATELIER BLOCK — "The Art of Craftsmanship / A journey inside the
+     creative heart of Pronovias" — video section → /atelier
+  5. SALE BANNER — "SALE UP TO 60% OFF OCCASION WEAR DRESSES UNTIL 08/24"
+     → /cocktail-dresses
+  6. PRODUCT CATEGORY TILES:
+       - "Bridal Dresses — Glow on your special day" → DISCOVER THE COLLECTION
+       - "Special Occasions — Celebrating in absolute style" → DISCOVER THE COLLECTION
+  7. #PRONOVIASBRIDE — Social proof section: "Step into the world of our
+     Real Brides!" (user-generated content, Instagram-style grid)
+  8. CTA BLOCK — "Looking for a wedding dress or guest look? We have it!
+     Book your appointment"
+  9. NEWSLETTER SIGNUP — "Join the Pronovias world. Subscribe to the newsletter"
+     (with two opt-in categories: Bridal / Occasion Wear)
+  10. SOCIAL MEDIA LINKS — Instagram, Facebook, TikTok, Pinterest, YouTube, Spotify
+  11. FOOTER — Help center, Company info, Legal information
+
+--------------------------------------------------------------------------------
+10. ADDRESS / HEADQUARTERS
+--------------------------------------------------------------------------------
+Pronovias is headquartered in Barcelona, Spain.
+The Atelier is described as located in Barcelona.
+
+The site does not expose a specific street address on the homepage.
+For boutique locations: https://www.pronovias.com/stores (Store Locator)
+Business inquiries (US): https://www.pronovias.com/business-inquiries-us
+
+Reach:
+  - 3,000+ authorized retail locations worldwide
+  - Pronovias boutiques + authorized retailers globally
+
+--------------------------------------------------------------------------------
+11. FEATURES SECTION
+--------------------------------------------------------------------------------
+Core features communicated across the site:
+
+  PRODUCT FEATURES ADVERTISED:
+    - Custom dress personalization ("Customize Your Wedding Dress")
+    - Multiple silhouettes (Mermaid, A-line, Princess, Plus-Size, Short,
+      Fit & Flare, Drop Waistline)
+    - Extensive style range (Boho, Beach, Elegant, Convertible, Spanish, etc.)
+    - Accessories ecosystem (Veils, Capes, Overskirts, Headpieces, Jackets)
+    - Guest dress range (Bridesmaids, Mother of the bride, Sister of the bride)
+
+  SERVICE FEATURES:
+    - In-store appointment booking
+    - Dress financing via Affirm (BNPL — Buy Now Pay Later)
+    - Personal Wedding Stylist assistance
+    - Virtual Trunk Show
+    - In-store events and experiences
+    - Bridal Week / Fashion Show presentations
+    - Style quiz ("Find your bridal style in 2 minutes")
+    - Wishlist / Favorites account system
+    - Newsletter segmented by category (Bridal / Occasion Wear)
+    - Social sharing program (#PRONOVIASBRIDE)
+
+  EDITORIAL / CONTENT FEATURES:
+    - "The Edit" — editorial journal
+    - "The Art of Craftsmanship" — Atelier documentary content
+    - "Customize your dress" editorial guide
+    - "The safe journey of your dress" — shipping transparency article
+    - "Brides for a cause" — social impact initiative
+    - "Pronovias for Protection" — sustainability program
+
+--------------------------------------------------------------------------------
+12. CALLS TO ACTION
+--------------------------------------------------------------------------------
+All CTAs found across the site:
+
+  PRIMARY CTAs (high priority, conversion-focused):
+    - "BOOK NOW" (hero slides 1, 2, 3)
+    - "Book Now" (sale slide)
+    - "Book your appointment" (persistent nav button + footer teaser block)
+
+  SECONDARY CTAs (engagement/discovery):
+    - "DISCOVER MORE" (Atelier block, Spring Capsule)
+    - "DISCOVER THE COLLECTION" (Bridal Dresses, Occasion Dresses sections)
+    - "Discover your bridal style in just 2 minutes" (announcement bar)
+    - "Subscribe" (newsletter form)
+    - "View all" (product category entries in nav)
+    - "New in" (collection nav entry)
+
+  LEAD CAPTURE CTAs:
+    - "Subscribe to the newsletter" (homepage + every page footer popup)
+    - "Share your wedding pictures" (community/UGC engagement)
+    - "Sign up here and let's connect!" (newsletter signup intro)
+
+  SUPPORT CTAs:
+    - "Find your store" (boutiques icon)
+    - "Financing your dress" (via Affirm)
+    - "Contact us"
+    - "Share your love story"
+
+--------------------------------------------------------------------------------
+13. BOOK APPOINTMENT
+--------------------------------------------------------------------------------
+URL: https://www.pronovias.com/book-appointment
+
+Placement:
+  - Sticky CTA button in the main navigation (always visible)
+  - End-of-page block: "Looking for a wedding dress or guest look?
+    We have it! Book your appointment"
+  - Hero slides 1, 2, 3: CTA button labeled "BOOK NOW"
+  - FAQ section references: "Book your appointment" for visiting boutiques
+
+Context from FAQ:
+  - Appointments available at Pronovias boutiques and 3,000+ authorized
+    retailers worldwide
+  - Customers encouraged to save favorites online before visiting
+  - Stylist ("Wedding Stylist") assists during the in-store appointment
+  - Customers can confirm dress availability before booking
+
+Recommendation from brand:
+  - Order 6-9 months ahead for standard dresses
+  - Atelier/custom dresses require longer lead time
+
+--------------------------------------------------------------------------------
+14. FOOTER / EXTRA INFORMATION
+--------------------------------------------------------------------------------
+
+Newsletter signup:
+  "Join the Pronovias world — We would love to drop you the occasional email
+  on latest trends, special discounts, and invite-only events."
+  Options: Bridal | Occasion Wear (segmented opt-in)
+
+Social channels:
+  Instagram:  https://www.instagram.com/pronovias/
+  Facebook:   https://www.facebook.com/pronovias/
+  TikTok:     https://www.tiktok.com/@pronoviasofficial/
+  Pinterest:  https://www.pinterest.com/pronovias/boards/
+  YouTube:    https://www.youtube.com/user/PronoviasTV
+  Spotify:    https://open.spotify.com/user/31w23wvfoin6byatxyobu6m4m5d4
+
+Hashtag campaign: #PRONOVIASBRIDE
+
+Financing partner: Affirm (BNPL — US market)
+
+Legal:
+  Copyright: © 2026 PRONOVIAS GROUP. All rights reserved.
+  ADA policy available (US accessibility compliance)
+  Modern Slavery Act statement available
+  Sustainability report published
+  Counterfeit policy published
+  Ethical channel: https://pronovias.ethicalchannel.app/
+
+================================================================================
+END OF FILE
+================================================================================
