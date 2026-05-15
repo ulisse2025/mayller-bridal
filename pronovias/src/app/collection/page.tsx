@@ -7,13 +7,13 @@ import { AnimatedNavFramer } from '@/components/ui/navigation-menu'
 type Photo = { id: string; url: string; caption: string }
 
 const DEFAULTS: Photo[] = [
-  { id: 'd1', url: 'https://images.unsplash.com/photo-1594552072238-b8a33785b6cd?auto=format&fit=crop&w=800&q=80', caption: 'Lūcentia Gown' },
-  { id: 'd2', url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80', caption: 'Atelier Exclusive' },
-  { id: 'd3', url: 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=800&q=80', caption: 'Privée Collection' },
-  { id: 'd4', url: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80', caption: 'Signature Line' },
-  { id: 'd5', url: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=800&q=80', caption: 'Barcelona Edit' },
-  { id: 'd6', url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80', caption: 'Bespoke Creation' },
-  { id: 'd7', url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=800&q=80', caption: 'Couture Edit' },
+  { id: 'd1', url: 'https://images.unsplash.com/photo-1594552072238-b8a33785b6cd?auto=format&fit=crop&w=800&q=80', caption: 'Classic Silhouette' },
+  { id: 'd2', url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80', caption: 'Hand-Beaded Bodice' },
+  { id: 'd3', url: 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=800&q=80', caption: 'Italian Lace Detail' },
+  { id: 'd4', url: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80', caption: 'Romantic Train' },
+  { id: 'd5', url: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=800&q=80', caption: 'Modern Minimalist' },
+  { id: 'd6', url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80', caption: 'Custom Design' },
+  { id: 'd7', url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=800&q=80', caption: 'Couture Detail' },
   { id: 'd8', url: 'https://images.unsplash.com/photo-1515405295579-ba7b45403062?auto=format&fit=crop&w=800&q=80', caption: 'The Bridal Look' },
 ]
 
@@ -64,12 +64,12 @@ export default function CollectionPage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/10" />
         </div>
         <div className="relative z-10">
-          <p className="text-amber-300/60 text-xs tracking-[0.5em] uppercase mb-5">Mayller · Bridal 2026</p>
+          <p className="text-amber-300/60 text-xs tracking-[0.5em] uppercase mb-5">The Mayller Collection</p>
           <h1 className="text-[clamp(3.5rem,11vw,10rem)] font-light leading-[0.9] tracking-[0.05em]">
-            COLLECTION<br /><span className="text-amber-300/80">2026</span>
+            BRIDAL<br /><span className="text-amber-300/80">COUTURE</span>
           </h1>
           <p className="mt-8 text-white/40 text-sm tracking-[0.3em] uppercase max-w-sm leading-relaxed">
-            Lūcentia — An Ode to Light.<br />Where craftsmanship meets the extraordinary.
+            Italian craftsmanship.<br />Made for the bride who knows.
           </p>
           <div className="mt-10 flex gap-5 items-center flex-wrap">
             <Link href="/#appointment" className="px-8 py-3 bg-white text-black text-xs font-semibold tracking-widest uppercase hover:bg-amber-300 transition-colors">
@@ -80,6 +80,20 @@ export default function CollectionPage() {
               View Collection ↓
             </button>
           </div>
+        </div>
+      </section>
+
+      {/* Intro */}
+      <section className="py-20 px-8 md:px-20 border-t border-white/10">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-amber-300/50 text-xs tracking-[0.4em] uppercase mb-5">Our Approach</p>
+          <h2 className="text-3xl font-light tracking-wide mb-6">Every gown begins with a conversation</h2>
+          <p className="text-white/50 leading-relaxed">
+            Our collection is built on Italian fabrics, handcrafted detailing, and silhouettes that
+            flatter every bride. Whether you choose from our boutique selection or design something
+            entirely your own, every dress that leaves Mayller is fitted, finished, and finished again
+            until it&apos;s exactly right.
+          </p>
         </div>
       </section>
 
@@ -119,6 +133,19 @@ export default function CollectionPage() {
         </div>
       </section>
 
+      {/* CTA */}
+      <section className="py-20 px-8 md:px-20 border-t border-white/10 text-center">
+        <p className="text-amber-300/50 text-xs tracking-[0.4em] uppercase mb-4">Don&apos;t see what you&apos;re imagining?</p>
+        <h2 className="text-3xl font-light tracking-widest mb-6">We design custom too</h2>
+        <p className="text-white/40 text-sm max-w-md mx-auto leading-relaxed mb-10">
+          Bring us your inspiration and we&apos;ll create a one-of-a-kind dress, drafted from your
+          measurements and made entirely for you.
+        </p>
+        <Link href="/#appointment" className="inline-block px-10 py-4 bg-amber-400 text-black text-xs font-bold tracking-widest uppercase hover:bg-amber-300 transition-colors">
+          Book a Consultation
+        </Link>
+      </section>
+
       {/* Lightbox */}
       {lightbox && (
         <div className="fixed inset-0 bg-black/96 z-[100] flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setLightbox(null)}>
@@ -130,7 +157,7 @@ export default function CollectionPage() {
 
       <footer className="border-t border-white/10 py-8 px-8 md:px-20 flex justify-between items-center">
         <Link href="/" className="text-xs font-light tracking-[0.3em] text-white/30 hover:text-white transition-colors uppercase">Mayller</Link>
-        <p className="text-white/15 text-xs tracking-widest">Collection 2026</p>
+        <p className="text-white/15 text-xs tracking-widest">Bridal Couture · Sinking Spring, PA</p>
         <Link href="/#appointment" className="text-xs tracking-widest uppercase text-amber-300/50 hover:text-amber-300 transition-colors">Book →</Link>
       </footer>
     </div>
