@@ -7,12 +7,12 @@ import { AnimatedNavFramer } from '@/components/ui/navigation-menu'
 type Photo = { id: string; url: string; caption: string }
 
 const DEFAULTS: Photo[] = [
-  { id: 'd1', url: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=800&q=80', caption: 'Bridal Showcase 2025' },
-  { id: 'd2', url: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?auto=format&fit=crop&w=800&q=80', caption: 'Barcelona Atelier Opening' },
-  { id: 'd3', url: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=80', caption: 'Collection Preview Night' },
-  { id: 'd4', url: 'https://images.unsplash.com/photo-1529543544282-ea669407fca3?auto=format&fit=crop&w=800&q=80', caption: 'Private Trunk Show' },
-  { id: 'd5', url: 'https://images.unsplash.com/photo-1505236858219-8359eb29e329?auto=format&fit=crop&w=800&q=80', caption: 'Bride & Style Forum' },
-  { id: 'd6', url: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=800&q=80', caption: 'Mayller Gala 2024' },
+  { id: 'd1', url: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=800&q=80', caption: 'Bridal Trunk Show' },
+  { id: 'd2', url: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?auto=format&fit=crop&w=800&q=80', caption: 'Champagne &amp; Lace Evening' },
+  { id: 'd3', url: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=80', caption: 'New Collection Preview' },
+  { id: 'd4', url: 'https://images.unsplash.com/photo-1529543544282-ea669407fca3?auto=format&fit=crop&w=800&q=80', caption: 'Private Bride &amp; Mother Tea' },
+  { id: 'd5', url: 'https://images.unsplash.com/photo-1505236858219-8359eb29e329?auto=format&fit=crop&w=800&q=80', caption: 'Wedding Wisdom Workshop' },
+  { id: 'd6', url: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=800&q=80', caption: 'Open Atelier Day' },
 ]
 
 export default function EventsPage() {
@@ -53,24 +53,40 @@ export default function EventsPage() {
       {/* Hero */}
       <section className="h-[70vh] relative flex items-end pb-20 px-8 md:px-20 overflow-hidden">
         <img src="https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=1600&q=90"
-          alt="Events" className="absolute inset-0 w-full h-full object-cover opacity-35" />
+          alt="Mayller Events" className="absolute inset-0 w-full h-full object-cover opacity-35" />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
         <div className="relative z-10">
-          <p className="text-amber-300/50 text-xs tracking-[0.5em] uppercase mb-4">Mayller · Experiences</p>
+          <p className="text-amber-300/50 text-xs tracking-[0.5em] uppercase mb-4">Mayller · Atelier Events</p>
           <h1 className="text-[clamp(3rem,9vw,8rem)] font-light tracking-[0.08em] leading-none">EVENTS</h1>
           <p className="mt-5 text-white/40 text-sm tracking-[0.25em] uppercase max-w-sm">
-            Exclusive bridal experiences — showcases, trunk shows & private soirées.
+            Trunk shows, private previews, and intimate evenings at our Sinking Spring boutique.
           </p>
         </div>
       </section>
 
       {/* Newsletter strip */}
       <div className="bg-amber-400 py-5 px-8 md:px-20 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className="text-black text-xs font-semibold tracking-widest uppercase">Stay informed — be the first to know about upcoming Mayller events</p>
+        <p className="text-black text-xs font-semibold tracking-widest uppercase">
+          Want an invite? Get on our event list — call (484) 638-6555 or message us
+        </p>
         <Link href="/contact" className="text-xs font-bold tracking-widest uppercase text-black border border-black px-6 py-2 hover:bg-black hover:text-amber-400 transition-colors whitespace-nowrap">
           Contact Us
         </Link>
       </div>
+
+      {/* Intro */}
+      <section className="py-20 px-8 md:px-20 border-t border-white/10">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-amber-300/50 text-xs tracking-[0.4em] uppercase mb-5">What to Expect</p>
+          <h2 className="text-3xl font-light tracking-wide mb-6">Small gatherings. Big moments.</h2>
+          <p className="text-white/50 leading-relaxed">
+            We host intimate events throughout the year — designer trunk shows, private collection
+            previews, mother-and-bride teas, and quiet evenings where you can browse, sip, and try
+            on dresses without the rush. Most events are by invitation, but we always welcome new
+            faces. Reach out and we&apos;ll add you to the next one.
+          </p>
+        </div>
+      </section>
 
       {/* Gallery */}
       <section className="py-20 px-4 md:px-12 border-t border-white/10">
@@ -78,7 +94,7 @@ export default function EventsPage() {
           <div className="flex items-end justify-between mb-12 px-4">
             <div>
               <p className="text-amber-300/40 text-xs tracking-[0.4em] uppercase mb-2">{photos.length} events</p>
-              <h2 className="text-3xl font-light tracking-[0.2em]">Gallery</h2>
+              <h2 className="text-3xl font-light tracking-[0.2em]">Past Events</h2>
             </div>
             {isAdmin && (
               <label className={`cursor-pointer flex items-center gap-2 px-5 py-2.5 border border-amber-400/40 text-amber-300/80 text-xs tracking-widest uppercase hover:bg-amber-400/10 transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -98,7 +114,7 @@ export default function EventsPage() {
                 <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                   <div className="absolute bottom-0 left-0 right-0 p-5">
-                    <p className="text-white text-sm font-light tracking-wider">{photo.caption}</p>
+                    <p className="text-white text-sm font-light tracking-wider" dangerouslySetInnerHTML={{ __html: photo.caption }} />
                     {isAdmin && <button onClick={e => { e.stopPropagation(); remove(photo.id) }} className="mt-1 text-red-400/80 text-xs hover:text-red-300">Remove</button>}
                   </div>
                 </div>
@@ -113,13 +129,13 @@ export default function EventsPage() {
         <div className="fixed inset-0 bg-black/96 z-[100] flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
           <button className="absolute top-6 right-8 text-white/40 hover:text-white text-xs tracking-widest uppercase">Close ✕</button>
           <img src={lightbox.url} alt={lightbox.caption} className="max-h-[88vh] max-w-[88vw] object-contain" />
-          <p className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/40 text-xs tracking-widest">{lightbox.caption}</p>
+          <p className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/40 text-xs tracking-widest" dangerouslySetInnerHTML={{ __html: lightbox.caption }} />
         </div>
       )}
 
       <footer className="border-t border-white/10 py-8 px-8 md:px-20 flex justify-between items-center">
         <Link href="/" className="text-xs font-light tracking-[0.3em] text-white/30 hover:text-white transition-colors uppercase">Mayller</Link>
-        <p className="text-white/15 text-xs tracking-widest">Events & Experiences</p>
+        <p className="text-white/15 text-xs tracking-widest">Atelier Events · Sinking Spring, PA</p>
         <Link href="/contact" className="text-xs tracking-widest uppercase text-amber-300/50 hover:text-amber-300 transition-colors">Contact →</Link>
       </footer>
     </div>
