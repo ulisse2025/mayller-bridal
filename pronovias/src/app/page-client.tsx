@@ -7,7 +7,7 @@ import ScrollAdventure from '@/components/ui/animated-scroll'
 import RadialOrbitalTimeline from '@/components/ui/radial-orbital-timeline'
 import { BookingCalendar } from '@/components/ui/booking-calendar'
 import { Footer } from '@/components/ui/modem-animated-footer'
-import { Calendar, Sparkles, Wand2, Scissors, Phone, MapPin } from 'lucide-react'
+import { Calendar, Sparkles, Wand2, Scissors, MapPin } from 'lucide-react'
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -37,7 +37,7 @@ const MAYLLERFeatures = [
     id: 1,
     title: 'Book Appointment',
     date: 'Sinking Spring, PA',
-    content: 'Schedule a private consultation in our Sinking Spring boutique. Bridal fittings, custom design, and master alterations — all by appointment.',
+    content: 'Schedule a private consultation in our Sinking Spring boutique. Bridal fittings, custom design, and master alterations - all by appointment.',
     category: 'Service',
     icon: Calendar,
     relatedIds: [4, 6],
@@ -59,7 +59,7 @@ const MAYLLERFeatures = [
     id: 3,
     title: 'Custom Design',
     date: 'Made for you',
-    content: 'Bring us a sketch, a Pinterest board, or just an idea. We design and build your wedding dress from scratch — fabric, silhouette, and details made for you.',
+    content: 'Bring us a sketch, a Pinterest board, or just an idea. We design and build your wedding dress from scratch - fabric, silhouette, and details made for you.',
     category: 'Service',
     icon: Wand2,
     relatedIds: [1, 4],
@@ -92,7 +92,7 @@ const MAYLLERFeatures = [
     id: 6,
     title: 'Visit Us',
     date: '(484) 638-6555',
-    content: 'Stop by 4054 W Penn Ave during boutique hours, or call us. We&apos;re a small team — when you reach out, you reach us directly.',
+    content: 'Stop by 4054 W Penn Ave during boutique hours, or call us. We are a small team - when you reach out, you reach us directly.',
     category: 'Contact',
     icon: MapPin,
     relatedIds: [1, 2],
@@ -100,6 +100,8 @@ const MAYLLERFeatures = [
     energy: 85,
   },
 ]
+
+const MAPS_URL = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('4054 W Penn Ave Sinking Spring PA')
 
 const socialLinks = [
   {
@@ -140,34 +142,27 @@ const footerNavLinks = [
   { label: 'Book Appointment', href: '#appointment' },
   { label: 'About Us', href: '/about' },
   { label: 'Contact', href: '/contact' },
-  { label: 'Visit the Boutique', href: 'https://www.google.com/maps/search/?api=1&query=4054+W+Penn+Ave+Sinking+Spring+PA' },
+  { label: 'Visit the Boutique', href: MAPS_URL },
 ]
 
 export default function MAYLLERPageClient() {
   return (
     <main className="bg-white">
-      {/* 1. Navigation — sticky floating pill */}
       <AnimatedNavFramer />
 
-      {/* 2. Hero — full-screen 3D interactive */}
       <section id="hero">
         <SplineSceneBasic />
       </section>
 
-      {/* 3. Announcement bar */}
       <div className="bg-black text-white text-center py-3 px-4">
         <p className="text-xs tracking-[0.3em] uppercase">
-          Now welcoming brides for the 2026 wedding season —{' '}
-          <a href="#appointment" className="underline underline-offset-2 hover:text-white/70 transition-colors">
-            Book your appointment
-          </a>
+          Now welcoming brides for the 2026 wedding season -{' '}
+          <a href="#appointment" className="underline underline-offset-2 hover:text-white/70 transition-colors">Book your appointment</a>
         </p>
       </div>
 
-      {/* 4. Product collections — split-screen scroll */}
       <ScrollAdventure />
 
-      {/* 5. Services / features — radial orbital */}
       <section id="services" className="relative">
         <div className="absolute inset-0 flex flex-col items-center justify-start pt-12 z-10 pointer-events-none">
           <p className="text-white/40 text-xs tracking-[0.3em] uppercase">Our Atelier</p>
@@ -176,38 +171,26 @@ export default function MAYLLERPageClient() {
         <RadialOrbitalTimeline timelineData={MAYLLERFeatures} />
       </section>
 
-      {/* 6. Atelier — WebGL shader backdrop */}
       <section id="atelier" className="relative">
         <ShieldShader />
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-4 text-center">
           <p className="text-white/40 uppercase tracking-[0.4em] text-xs mb-6">Italian Heart · Pennsylvania Home</p>
-          <h2 className="text-5xl md:text-7xl font-light text-white tracking-widest mb-6">
-            THE ATELIER
-          </h2>
+          <h2 className="text-5xl md:text-7xl font-light text-white tracking-widest mb-6">THE ATELIER</h2>
           <p className="text-white/60 text-lg max-w-2xl leading-relaxed mb-10">
-            Old World tailoring brought to Sinking Spring. Our small atelier is where Italian
-            craftsmanship meets the personal attention every bride deserves.
+            Old World tailoring brought to Sinking Spring. Our small atelier is where Italian craftsmanship meets the personal attention every bride deserves.
           </p>
-          
-            href="/about"
-            className="text-xs text-white/70 tracking-[0.3em] uppercase border border-white/30 px-8 py-3 hover:border-white hover:text-white transition-all duration-300"
-          >
-            Discover Our Story
-          </a>
+          <a href="/about" className="text-xs text-white/70 tracking-[0.3em] uppercase border border-white/30 px-8 py-3 hover:border-white hover:text-white transition-all duration-300">Discover Our Story</a>
         </div>
-        {/* Gradient overlay for text legibility */}
         <div className="absolute inset-0 bg-black/50 pointer-events-none" />
       </section>
 
-      {/* 7. Booking Calendar */}
       <section id="appointment" className="bg-black border-t border-white/10">
         <BookingCalendar />
       </section>
 
-      {/* 9. Footer */}
       <Footer
         brandName="MAYLLER"
-        brandDescription="Italian-trained bridal couture in Sinking Spring, PA. Custom wedding dresses, master alterations, and one-on-one fittings — all by appointment."
+        brandDescription="Italian-trained bridal couture in Sinking Spring, PA. Custom wedding dresses, master alterations, and one-on-one fittings - all by appointment."
         socialLinks={socialLinks}
         navLinks={footerNavLinks}
       />
