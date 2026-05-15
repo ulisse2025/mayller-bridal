@@ -3,29 +3,31 @@
 import { useState, useMemo, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 
-const MONTHS_EN = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
+const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const DAYS_EN = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 
-const ALL_SLOTS = ['10:00 AM', '11:00 AM', '12:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM']
-const AM_SLOTS  = ['10:00 AM', '11:00 AM', '12:00 PM']
-const PM_SLOTS  = ['2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM']
+// Service-aware time slots
+// Alteration (30 min): one slot every 30 minutes
+// Wedding (90 min): one slot every 90 minutes (no overlap)
+// Lunch break: 1:00 PM - 2:00 PM
+const SLOTS_BY_SERVICE: Record<string, { am: string[]; pm: string[] }> = {
+  alteration: {
+    am: ['10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM'],
+    pm: ['2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM', '5:00 PM', '5:30 PM'],
+  },
+  wedding: {
+    am: ['10:00 AM', '11:30 AM'],
+    pm: ['2:00 PM', '3:30 PM'],
+  },
+}
+
+function getSlotsForService(service: string) {
+  return SLOTS_BY_SERVICE[service] ?? SLOTS_BY_SERVICE.alteration
+}
 
 const SERVICES = [
-  {
-    id: 'alteration',
-    label: 'Alteration',
-    sublabel: 'Expert tailoring session with our master seamstress',
-    duration: '30 min',
-  },
-  {
-    id: 'wedding',
-    label: 'Wedding Dress',
-    sublabel: 'Private consultation — find your perfect gown',
-    duration: '90 min',
-  },
+  { id: 'alteration', label: 'Alteration', sublabel: 'Expert tailoring session with our master seamstress', duration: '30 min' },
+  { id: 'wedding', label: 'Wedding Dress', sublabel: 'Private consultation - find your perfect gown', duration: '90 min' },
 ]
 
 type Step = 'service' | 'datetime' | 'info' | 'done'
@@ -66,15 +68,16 @@ function formatSelectedDate(iso: string) {
 export function BookingCalendar() {
   const today = new Date()
   const [step, setStep] = useState<Step>('service')
-  const [form, setForm] = useState<BookingForm>({
-    service: '', date: '', time: '', name: '', email: '', phone: '', notes: '',
-  })
+  const [form, setForm] = useState<BookingForm>({ service: '', date: '', time: '', name: '', email: '', phone: '', notes: '' })
   const [calYear, setCalYear] = useState(today.getFullYear())
   const [calMonth, setCalMonth] = useState(today.getMonth())
   const [bookedSlots, setBookedSlots] = useState<string[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const { am: amSlots, pm: pmSlots } = useMemo(() => getSlotsForService(form.service), [form.service])
+  const allSlots = useMemo(() => [...amSlots, ...pmSlots], [amSlots, pmSlots])
 
   const days = useMemo(() => buildCalendarDays(calYear, calMonth), [calYear, calMonth])
   const canGoBack = calYear > today.getFullYear() || calMonth > today.getMonth()
@@ -142,42 +145,31 @@ export function BookingCalendar() {
     setError('')
   }
 
-  // ── DONE ─────────────────────────────────────────────────────────────────────
   if (step === 'done') {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center py-24 px-4 text-center">
         <div className="w-16 h-16 rounded-full border border-amber-400/50 flex items-center justify-center mb-8">
-          <svg className="w-7 h-7 text-amber-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-12.5" />
-          </svg>
+          <svg className="w-7 h-7 text-amber-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-12.5" /></svg>
         </div>
         <p className="text-amber-300/70 text-xs tracking-[0.3em] uppercase mb-3">Booking Confirmed</p>
         <h2 className="text-3xl font-light text-white tracking-widest mb-4">Thank you, {form.name.split(' ')[0]}</h2>
         <p className="text-white/50 max-w-md leading-relaxed text-sm mb-2">
-          Your{' '}
-          <span className="text-white/80">{SERVICES.find(s => s.id === form.service)?.label}</span>{' '}
-          appointment is confirmed for{' '}
-          <span className="text-white/80">{formatSelectedDate(form.date)}</span>{' '}
-          at <span className="text-white/80">{form.time}</span>.
+          Your <span className="text-white/80">{SERVICES.find(s => s.id === form.service)?.label}</span> appointment is confirmed for <span className="text-white/80">{formatSelectedDate(form.date)}</span> at <span className="text-white/80">{form.time}</span>.
         </p>
         <p className="text-white/30 text-xs mb-10">The Mayller team has been notified.</p>
-        <button onClick={reset} className="text-xs tracking-[0.25em] uppercase text-white/40 hover:text-white/70 border border-white/20 hover:border-white/40 px-8 py-3 transition-all">
-          New Booking
-        </button>
+        <button onClick={reset} className="text-xs tracking-[0.25em] uppercase text-white/40 hover:text-white/70 border border-white/20 hover:border-white/40 px-8 py-3 transition-all">New Booking</button>
       </div>
     )
   }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-20">
-      {/* Header */}
       <div className="text-center mb-14">
         <p className="text-amber-300/60 text-xs tracking-[0.35em] uppercase mb-4">Mayller Atelier</p>
         <h2 className="text-4xl font-light text-white tracking-widest mb-3">Book Your Appointment</h2>
-        <p className="text-white/40 text-sm">By appointment only — we welcome you with complete dedication</p>
+        <p className="text-white/40 text-sm">By appointment only - we welcome you with complete dedication</p>
       </div>
 
-      {/* Progress */}
       <div className="flex items-center justify-center gap-3 mb-14">
         {(['service', 'datetime', 'info'] as Step[]).map((s, i) => {
           const labels = ['Service', 'Date & Time', 'Details']
@@ -188,19 +180,10 @@ export function BookingCalendar() {
           return (
             <div key={s} className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <div className={cn(
-                  'w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all',
-                  isDone ? 'bg-amber-400 text-black' : isActive ? 'border border-amber-400 text-amber-300' : 'border border-white/20 text-white/30'
-                )}>
-                  {isDone ? (
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-12.5" />
-                    </svg>
-                  ) : <span>{i + 1}</span>}
+                <div className={cn('w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all', isDone ? 'bg-amber-400 text-black' : isActive ? 'border border-amber-400 text-amber-300' : 'border border-white/20 text-white/30')}>
+                  {isDone ? (<svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-12.5" /></svg>) : <span>{i + 1}</span>}
                 </div>
-                <span className={cn('text-xs tracking-wider', isActive ? 'text-white/70' : isDone ? 'text-amber-300/70' : 'text-white/20')}>
-                  {labels[i]}
-                </span>
+                <span className={cn('text-xs tracking-wider', isActive ? 'text-white/70' : isDone ? 'text-amber-300/70' : 'text-white/20')}>{labels[i]}</span>
               </div>
               {i < 2 && <div className={cn('w-12 h-px', isDone ? 'bg-amber-400/50' : 'bg-white/10')} />}
             </div>
@@ -208,22 +191,12 @@ export function BookingCalendar() {
         })}
       </div>
 
-      {/* ── STEP 1: SERVICE ─────────────────────────────────────────────────────── */}
       {step === 'service' && (
         <div>
           <p className="text-xs tracking-[0.25em] uppercase text-white/40 text-center mb-8">Choose your appointment type</p>
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
             {SERVICES.map((svc) => (
-              <button
-                key={svc.id}
-                onClick={() => { setForm(f => ({ ...f, service: svc.id })); setStep('datetime') }}
-                className={cn(
-                  'relative p-8 border text-left transition-all duration-300 group',
-                  form.service === svc.id
-                    ? 'border-amber-400/70 bg-amber-400/5'
-                    : 'border-white/15 hover:border-white/40 bg-white/[0.02] hover:bg-white/[0.04]'
-                )}
-              >
+              <button key={svc.id} onClick={() => { setForm(f => ({ ...f, service: svc.id })); setStep('datetime') }} className={cn('relative p-8 border text-left transition-all duration-300 group', form.service === svc.id ? 'border-amber-400/70 bg-amber-400/5' : 'border-white/15 hover:border-white/40 bg-white/[0.02] hover:bg-white/[0.04]')}>
                 <div className="absolute top-4 right-4 w-5 h-5 rounded-full border border-amber-400/30 group-hover:border-amber-400/60 flex items-center justify-center transition-all">
                   <div className={cn('w-2 h-2 rounded-full transition-all', form.service === svc.id ? 'bg-amber-400' : 'bg-transparent')} />
                 </div>
@@ -236,22 +209,17 @@ export function BookingCalendar() {
         </div>
       )}
 
-      {/* ── STEP 2: DATE & TIME ─────────────────────────────────────────────────── */}
       {step === 'datetime' && (
         <div className="grid lg:grid-cols-2 gap-10">
-          {/* Calendar */}
           <div>
             <p className="text-xs tracking-[0.25em] uppercase text-white/40 mb-6">Choose a date</p>
             <div className="flex items-center justify-between mb-6">
-              <button onClick={prevMonth} disabled={!canGoBack}
-                className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white disabled:opacity-20 transition-colors">←</button>
+              <button onClick={prevMonth} disabled={!canGoBack} className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white disabled:opacity-20 transition-colors">←</button>
               <span className="text-white text-sm tracking-widest uppercase">{MONTHS_EN[calMonth]} {calYear}</span>
               <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors">→</button>
             </div>
             <div className="grid grid-cols-7 mb-2">
-              {DAYS_EN.map((d) => (
-                <div key={d} className={cn('text-center text-xs tracking-wider py-1', d === 'Su' ? 'text-white/15' : 'text-white/30')}>{d}</div>
-              ))}
+              {DAYS_EN.map((d) => (<div key={d} className={cn('text-center text-xs tracking-wider py-1', d === 'Su' ? 'text-white/15' : 'text-white/30')}>{d}</div>))}
             </div>
             <div className="grid grid-cols-7 gap-0.5">
               {days.map((date, i) => {
@@ -260,84 +228,49 @@ export function BookingCalendar() {
                 const available = isDateAvailable(date)
                 const selected = form.date === iso
                 return (
-                  <button key={i} disabled={!available} onClick={() => selectDate(date)}
-                    className={cn(
-                      'aspect-square flex items-center justify-center text-sm transition-all duration-200',
-                      selected ? 'bg-amber-400 text-black font-medium'
-                        : available ? 'text-white/80 hover:bg-white/10'
-                        : 'text-white/15 cursor-not-allowed'
-                    )}>
-                    {date.getDate()}
-                  </button>
+                  <button key={i} disabled={!available} onClick={() => selectDate(date)} className={cn('aspect-square flex items-center justify-center text-sm transition-all duration-200', selected ? 'bg-amber-400 text-black font-medium' : available ? 'text-white/80 hover:bg-white/10' : 'text-white/15 cursor-not-allowed')}>{date.getDate()}</button>
                 )
               })}
             </div>
-            <p className="text-white/20 text-xs mt-4">Open Monday–Saturday</p>
+            <p className="text-white/20 text-xs mt-4">Open Monday-Saturday</p>
           </div>
 
-          {/* Time slots */}
           <div>
-            <p className="text-xs tracking-[0.25em] uppercase text-white/40 mb-6">
-              {form.date ? `Available times — ${formatSelectedDate(form.date)}` : 'Select a date first'}
-            </p>
+            <p className="text-xs tracking-[0.25em] uppercase text-white/40 mb-2">{form.date ? `Available times - ${formatSelectedDate(form.date)}` : 'Select a date first'}</p>
+            {form.service && (<p className="text-xs text-amber-300/40 mb-6 tracking-wider">{SERVICES.find(s => s.id === form.service)?.label} - slots every {form.service === 'alteration' ? '30 minutes' : '90 minutes'}</p>)}
             {form.date ? (
               loadingSlots ? (
                 <div className="h-48 flex items-center justify-center">
-                  <svg className="w-6 h-6 animate-spin text-amber-400/50" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <svg className="w-6 h-6 animate-spin text-amber-400/50" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                 </div>
               ) : (
                 <>
                   <p className="text-xs text-white/30 tracking-wider mb-3">MORNING</p>
-                  <div className="grid grid-cols-3 gap-2 mb-6">
-                    {AM_SLOTS.map((t) => {
+                  <div className={cn('grid gap-2 mb-6', form.service === 'alteration' ? 'grid-cols-3' : 'grid-cols-2')}>
+                    {amSlots.map((t) => {
                       const booked = isBooked(t)
                       return (
-                        <button key={t} onClick={() => !booked && setForm(f => ({ ...f, time: t }))}
-                          disabled={booked}
-                          className={cn(
-                            'py-3 text-sm tracking-wider border transition-all',
-                            booked ? 'border-white/5 text-white/15 cursor-not-allowed line-through'
-                              : form.time === t ? 'border-amber-400 bg-amber-400/10 text-amber-300'
-                              : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white'
-                          )}>
-                          {t}
-                        </button>
+                        <button key={t} onClick={() => !booked && setForm(f => ({ ...f, time: t }))} disabled={booked} className={cn('py-3 text-sm tracking-wider border transition-all', booked ? 'border-white/5 text-white/15 cursor-not-allowed line-through' : form.time === t ? 'border-amber-400 bg-amber-400/10 text-amber-300' : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white')}>{t}</button>
                       )
                     })}
                   </div>
                   <p className="text-xs text-white/30 tracking-wider mb-3">AFTERNOON</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {PM_SLOTS.map((t) => {
+                  <div className={cn('grid gap-2', form.service === 'alteration' ? 'grid-cols-4' : 'grid-cols-2')}>
+                    {pmSlots.map((t) => {
                       const booked = isBooked(t)
                       return (
-                        <button key={t} onClick={() => !booked && setForm(f => ({ ...f, time: t }))}
-                          disabled={booked}
-                          className={cn(
-                            'py-3 text-sm tracking-wider border transition-all',
-                            booked ? 'border-white/5 text-white/15 cursor-not-allowed line-through'
-                              : form.time === t ? 'border-amber-400 bg-amber-400/10 text-amber-300'
-                              : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white'
-                          )}>
-                          {t}
-                        </button>
+                        <button key={t} onClick={() => !booked && setForm(f => ({ ...f, time: t }))} disabled={booked} className={cn('py-3 text-sm tracking-wider border transition-all', booked ? 'border-white/5 text-white/15 cursor-not-allowed line-through' : form.time === t ? 'border-amber-400 bg-amber-400/10 text-amber-300' : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white')}>{t}</button>
                       )
                     })}
                   </div>
-                  {bookedSlots.length === ALL_SLOTS.length && (
-                    <p className="mt-4 text-amber-300/60 text-xs tracking-wider">All slots are booked for this day. Please select another date.</p>
-                  )}
+                  {bookedSlots.length >= allSlots.length && allSlots.length > 0 && (<p className="mt-4 text-amber-300/60 text-xs tracking-wider">All slots are booked for this day. Please select another date.</p>)}
                 </>
               )
             ) : (
               <div className="h-48 flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-12 h-12 rounded-full border border-white/10 mx-auto mb-4 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white/20" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                    </svg>
+                    <svg className="w-5 h-5 text-white/20" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
                   </div>
                   <p className="text-white/20 text-xs tracking-wider">Select a date</p>
                 </div>
@@ -348,14 +281,13 @@ export function BookingCalendar() {
               <div className="mt-8 border border-amber-400/30 bg-amber-400/5 p-4">
                 <p className="text-xs text-amber-300/60 tracking-widest uppercase mb-2">Summary</p>
                 <p className="text-white/80 text-sm">{SERVICES.find(s => s.id === form.service)?.label}</p>
-                <p className="text-white/50 text-sm">{formatSelectedDate(form.date)} — {form.time}</p>
+                <p className="text-white/50 text-sm">{formatSelectedDate(form.date)} - {form.time}</p>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* ── STEP 3: CONTACT INFO ─────────────────────────────────────────────────── */}
       {step === 'info' && (
         <div className="max-w-lg mx-auto">
           <p className="text-xs tracking-[0.25em] uppercase text-white/40 text-center mb-8">Your contact details</p>
@@ -381,59 +313,27 @@ export function BookingCalendar() {
             ].map(({ key, label, type, placeholder }) => (
               <div key={key}>
                 <label className="block text-xs tracking-[0.2em] text-white/40 uppercase mb-2">{label}</label>
-                <input
-                  type={type}
-                  value={form[key as keyof BookingForm]}
-                  onChange={(e) => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  placeholder={placeholder}
-                  className="w-full bg-transparent border border-white/15 focus:border-amber-400/60 outline-none px-4 py-3 text-white/80 text-sm placeholder:text-white/20 transition-colors"
-                />
+                <input type={type} value={form[key as keyof BookingForm]} onChange={(e) => setForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder} className="w-full bg-transparent border border-white/15 focus:border-amber-400/60 outline-none px-4 py-3 text-white/80 text-sm placeholder:text-white/20 transition-colors" />
               </div>
             ))}
             <div>
               <label className="block text-xs tracking-[0.2em] text-white/40 uppercase mb-2">Notes (optional)</label>
-              <textarea rows={3} value={form.notes}
-                onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Preferred style, dress size, questions for the stylist..."
-                className="w-full bg-transparent border border-white/15 focus:border-amber-400/60 outline-none px-4 py-3 text-white/80 text-sm placeholder:text-white/20 transition-colors resize-none"
-              />
+              <textarea rows={3} value={form.notes} onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Preferred style, dress size, questions for the stylist..." className="w-full bg-transparent border border-white/15 focus:border-amber-400/60 outline-none px-4 py-3 text-white/80 text-sm placeholder:text-white/20 transition-colors resize-none" />
             </div>
           </div>
-          {error && (
-            <div className="mt-4 border border-red-400/30 bg-red-400/5 px-4 py-3 text-red-300 text-sm">{error}</div>
-          )}
+          {error && (<div className="mt-4 border border-red-400/30 bg-red-400/5 px-4 py-3 text-red-300 text-sm">{error}</div>)}
         </div>
       )}
 
-      {/* ── NAV BUTTONS ─────────────────────────────────────────────────────────── */}
       {(step === 'datetime' || step === 'info') && (
         <div className="flex items-center justify-between mt-12 max-w-5xl mx-auto">
-          <button
-            onClick={() => setStep(step === 'info' ? 'datetime' : 'service')}
-            className="text-xs tracking-widest uppercase text-white/30 hover:text-white/60 transition-colors">
-            ← Back
-          </button>
+          <button onClick={() => setStep(step === 'info' ? 'datetime' : 'service')} className="text-xs tracking-widest uppercase text-white/30 hover:text-white/60 transition-colors">← Back</button>
           {step === 'datetime' && (
-            <button onClick={() => setStep('info')} disabled={!form.date || !form.time}
-              className={cn(
-                'px-10 py-3 text-xs tracking-[0.25em] uppercase transition-all',
-                form.date && form.time ? 'bg-white text-black hover:bg-white/90' : 'border border-white/15 text-white/20 cursor-not-allowed'
-              )}>
-              Continue →
-            </button>
+            <button onClick={() => setStep('info')} disabled={!form.date || !form.time} className={cn('px-10 py-3 text-xs tracking-[0.25em] uppercase transition-all', form.date && form.time ? 'bg-white text-black hover:bg-white/90' : 'border border-white/15 text-white/20 cursor-not-allowed')}>Continue →</button>
           )}
           {step === 'info' && (
-            <button onClick={handleSubmit} disabled={loading || !form.name || !form.email || !form.phone}
-              className={cn(
-                'px-10 py-3 text-xs tracking-[0.25em] uppercase transition-all flex items-center gap-3',
-                form.name && form.email && form.phone ? 'bg-amber-400 text-black hover:bg-amber-300' : 'border border-white/15 text-white/20 cursor-not-allowed'
-              )}>
-              {loading && (
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              )}
+            <button onClick={handleSubmit} disabled={loading || !form.name || !form.email || !form.phone} className={cn('px-10 py-3 text-xs tracking-[0.25em] uppercase transition-all flex items-center gap-3', form.name && form.email && form.phone ? 'bg-amber-400 text-black hover:bg-amber-300' : 'border border-white/15 text-white/20 cursor-not-allowed')}>
+              {loading && (<svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>)}
               {loading ? 'Submitting...' : 'Confirm Booking'}
             </button>
           )}
