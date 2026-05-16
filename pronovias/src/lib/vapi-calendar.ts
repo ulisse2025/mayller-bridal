@@ -19,6 +19,47 @@ import {
   STORE_ADDRESS,
 } from './booking-types';
 
+// ── Timezone Helper ───────────────────────────────────────────
+
+/**
+ * Build a Date that represents a specific local time in America/New_York.
+ * Vercel servers run in UTC, so new Date(year, month, day, hour) is UTC,
+ * not Eastern — this function compensates for that.
+ *
+ * Example: easternDate('2026-05-20', 10, 0)
+ *   → Date object equal to 2026-05-20T14:00:00Z  (10 AM EDT = UTC-4)
+ */
+function easternDate(dateStr: string, hour: number, minute: number = 0): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+
+  // Construct a naive UTC timestamp at the requested hour
+  const naive = new Date(Date.UTC(y, m - 1, d, hour, minute, 0));
+
+  // Ask Intl what hour that UTC moment maps to in New York
+  const nyHour = parseInt(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      hour12: false,
+    }).format(naive),
+    10
+  );
+
+  // nyHour is what NY clock shows when UTC is 'hour'
+  // To make NY show 'hour', shift UTC by (nyHour - hour)
+  const offsetMs = (nyHour - hour) * 3_600_000;
+  return new Date(naive.getTime() - offsetMs);
+}
+
+/**
+ * Returns today's date string (YYYY-MM-DD) in America/New_York timezone.
+ */
+function todayInNY(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+  }).format(new Date()); // en-CA gives YYYY-MM-DD format
+}
+
 // ── Auth & Client ─────────────────────────────────────────────
 
 function getCalendarClient() {
@@ -55,15 +96,12 @@ export async function getAvailableSlots(
     return [];
   }
 
-  // Validate: not in the past
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (dateObj < today) return [];
+  // Validate: not in the past (compare date strings in NY timezone)
+  if (date < todayInNY()) return [];
 
-  // Build time window
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const timeMin = new Date(`${date}T${pad(BUSINESS_HOURS.start)}:00:00`);
-  const timeMax = new Date(`${date}T${pad(BUSINESS_HOURS.end)}:00:00`);
+  // Build time window in Eastern Time (correctly converted to UTC)
+  const timeMin = easternDate(date, BUSINESS_HOURS.start);
+  const timeMax = easternDate(date, BUSINESS_HOURS.end);
 
   // Fetch busy times from Google Calendar
   const calendar = getCalendarClient();
@@ -78,14 +116,17 @@ export async function getAvailableSlots(
 
   const busy = freeBusy.data.calendars?.[calendarId()]?.busy ?? [];
 
-  // Generate all possible slots
+  // Generate all possible slots — also using Eastern Time
   const available: string[] = [];
-  let currentMin = BUSINESS_HOURS.start * 60; // minutes since midnight
+  let currentMin = BUSINESS_HOURS.start * 60; // minutes since midnight ET
   const endMin = BUSINESS_HOURS.end * 60;
 
   while (currentMin + config.duration <= endMin) {
-    const slotStart = new Date(year, month - 1, day,
-      Math.floor(currentMin / 60), currentMin % 60, 0);
+    const slotHour = Math.floor(currentMin / 60);
+    const slotMinute = currentMin % 60;
+
+    // Build slot start/end in Eastern Time (correctly converted to UTC)
+    const slotStart = easternDate(date, slotHour, slotMinute);
     const slotEnd = new Date(slotStart.getTime() + config.duration * 60_000);
 
     const overlaps = busy.some(b => {
@@ -95,7 +136,7 @@ export async function getAvailableSlots(
     });
 
     if (!overlaps) {
-      available.push(formatTime(Math.floor(currentMin / 60), currentMin % 60));
+      available.push(formatTime(slotHour, slotMinute));
     }
 
     currentMin += BUSINESS_HOURS.slotIncrement;
@@ -112,9 +153,9 @@ export async function createBooking(req: BookingRequest): Promise<BookingResult>
   const bookingId = randomUUID();
 
   const { hours, minutes } = parseTime(req.time);
-  const [year, month, day] = req.date.split('-').map(Number);
 
-  const startDate = new Date(year, month - 1, day, hours, minutes, 0);
+  // Build event times in Eastern Time (correctly converted to UTC)
+  const startDate = easternDate(req.date, hours, minutes);
   const endDate = new Date(startDate.getTime() + config.duration * 60_000);
 
   const descriptionLines = [
