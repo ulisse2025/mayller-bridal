@@ -1,15 +1,3 @@
-// ============================================================
-// MAYLLER BRIDAL — Booking System
-// app/api/vapi/tools/route.ts
-//
-// Single endpoint that handles ALL Vapi function calls:
-//   - check_availability
-//   - create_booking
-//   - cancel_booking
-//
-// Vapi calls this URL when Sofia needs to perform an action.
-// ============================================================
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getAvailableSlots, createBooking, cancelBookingById } from '@/lib/vapi-calendar';
 import { sendConfirmationEmail, sendConfirmationSMS, sendCancellationSMS } from '@/lib/notifications';
@@ -23,84 +11,67 @@ import {
   STORE_ADDRESS,
 } from '@/lib/booking-types';
 
-// ── Vapi Request / Response Types ────────────────────────────
+// ── CORS Headers ──────────────────────────────────────────────
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
 
-interface ToolCall {
-  id: string;
-  type: 'function';
-  function: {
-    name: string;
-    arguments: string; // JSON string
-  };
-}
-
-interface VapiRequest {
-  message: {
-    type: string;
-    toolCallList?: ToolCall[];
-  };
-}
-
-interface ToolResult {
-  toolCallId: string;
-  result: string;
+export async function OPTIONS() {
+  return new NextResponse(null, { headers: CORS });
 }
 
 // ── Tool Handlers ─────────────────────────────────────────────
 
-async function handleCheckAvailability(
-  args: Record<string, string>
-): Promise<string> {
+async function handleCheckAvailability(args: Record<string, string>): Promise<string> {
   const { date, appointment_type } = args;
+
+  console.log('[check_availability] args received:', JSON.stringify(args));
 
   if (!date) {
     return 'I need a date to check availability. What date were you thinking?';
   }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return `Please provide the date in YYYY-MM-DD format. For example, 2026-06-15 for June 15th.`;
+  const normalizedDate = date.trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+    console.error('[check_availability] Invalid date format:', normalizedDate);
+    return `I need the date in a standard format. Could you say the date again, like "May 20th" or "next Tuesday"?`;
   }
 
-  const type: AppointmentType = normalizeAppointmentType(
-    appointment_type || 'wedding_consultation'
-  );
+  const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
   const config = APPOINTMENT_CONFIG[type];
 
   try {
-    const slots = await getAvailableSlots(date, type);
+    console.log('[check_availability] Querying calendar for date:', normalizedDate, 'type:', type);
+    const slots = await getAvailableSlots(normalizedDate, type);
+    console.log('[check_availability] Slots returned:', slots.length, JSON.stringify(slots.slice(0, 3)));
 
     if (slots.length === 0) {
-      const [year, month, day] = date.split('-').map(Number);
+      const [year, month, day] = normalizedDate.split('-').map(Number);
       const dateObj = new Date(year, month - 1, day);
       const dow = dateObj.getDay();
 
       if (!BUSINESS_HOURS.openDays.includes(dow as (typeof BUSINESS_HOURS.openDays)[number])) {
         return `We are closed on Sundays. Our boutique is open Monday through Saturday, 10:00 AM to 6:00 PM. Would you like to try a different day?`;
       }
-
-      const past = new Date();
-      past.setHours(0, 0, 0, 0);
-      if (dateObj < past) {
-        return `That date has already passed. Please choose a future date.`;
-      }
-
-      return `Unfortunately we have no available slots on ${formatDate(date)} for a ${config.label}. Would you like to try another date?`;
+      return `Unfortunately we have no available slots on ${formatDate(normalizedDate)} for a ${config.label}. Would you like to try another date?`;
     }
 
-    const friendlyDate = formatDate(date);
     const displayed = slots.slice(0, 5);
     const more = slots.length > 5 ? ` (and ${slots.length - 5} more)` : '';
+    return `We have the following openings for a ${config.label} on ${formatDate(normalizedDate)}: ${displayed.join(', ')}${more}. Which time works best for you?`;
 
-    return `We have the following openings for a ${config.label} on ${friendlyDate}: ${displayed.join(', ')}${more}. Which time works best for you?`;
   } catch (err) {
-    console.error('[check_availability] Error:', err);
+    console.error('[check_availability] Exception:', String(err));
     return `I'm having trouble checking availability right now. Please call us directly at ${STORE_PHONE} and we'll be happy to help.`;
   }
 }
 
-async function handleCreateBooking(
-  args: Record<string, string>
-): Promise<string> {
+async function handleCreateBooking(args: Record<string, string>): Promise<string> {
+  console.log('[create_booking] args received:', JSON.stringify(args));
+
   const { customer_name, customer_phone, customer_email, date, time, appointment_type, notes } = args;
 
   const missing: string[] = [];
@@ -108,15 +79,19 @@ async function handleCreateBooking(
   if (!customer_phone) missing.push('your phone number');
   if (!date) missing.push('the date');
   if (!time) missing.push('the time');
-
   if (missing.length > 0) {
     return `Before I confirm the booking, I still need: ${missing.join(', ')}. Could you provide that?`;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return `I have a problem with the date format. Could you repeat the date?`;
   }
 
   const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
   const config = APPOINTMENT_CONFIG[type];
 
   try {
+    console.log('[create_booking] Creating event in calendar...');
     const booking = await createBooking({
       customerName: customer_name,
       customerPhone: customer_phone,
@@ -127,84 +102,112 @@ async function handleCreateBooking(
       notes: notes || undefined,
     });
 
+    console.log('[create_booking] Success, bookingId:', booking.bookingId);
+
     Promise.all([
       sendConfirmationSMS(booking),
       sendConfirmationEmail(booking),
-    ]).catch(err => console.error('[notifications] Error:', err));
+    ]).catch(err => console.error('[notifications] Error:', String(err)));
 
     const shortId = booking.bookingId.slice(0, 8).toUpperCase();
 
     return [
-      `Your appointment is confirmed, ${booking.customerName}! Here are your details:`,
-      `Type: ${config.label}`,
-      `Date: ${formatDate(date)}`,
-      `Time: ${time}`,
-      `Duration: ${config.duration} minutes`,
-      `Location: ${STORE_ADDRESS}`,
-      `Booking ID: ${shortId}`,
+      `Your appointment is confirmed, ${booking.customerName}!`,
+      `Type: ${config.label}.`,
+      `Date: ${formatDate(date)}.`,
+      `Time: ${time}.`,
+      `Duration: ${config.duration} minutes.`,
+      `Location: ${STORE_ADDRESS}.`,
+      `Booking ID: ${shortId}.`,
       `You will receive a confirmation text message shortly.`,
-      `If you need to cancel or reschedule, please call us at ${STORE_PHONE} at least 24 hours in advance.`,
-      `We look forward to seeing you! Is there anything else I can help you with?`,
+      `To cancel or reschedule, please call us at ${STORE_PHONE} at least 24 hours in advance.`,
+      `We look forward to seeing you!`,
     ].join(' ');
+
   } catch (err) {
-    console.error('[create_booking] Error:', err);
+    console.error('[create_booking] Exception:', String(err));
     return `I encountered an issue creating your booking. Please call us directly at ${STORE_PHONE} and we will take care of you right away.`;
   }
 }
 
-async function handleCancelBooking(
-  args: Record<string, string>
-): Promise<string> {
+async function handleCancelBooking(args: Record<string, string>): Promise<string> {
   const { booking_id } = args;
-
   if (!booking_id) {
-    return `To cancel your appointment I need your booking ID. It's the 8-character code in your confirmation text message. What is it?`;
+    return `To cancel your appointment I need your booking ID — the 8-character code from your confirmation text. What is it?`;
   }
 
   try {
     const result = await cancelBookingById(booking_id);
-
     if (!result.success) {
       return `I could not find a booking with that ID. Please double-check the code in your confirmation SMS. If you're still having trouble, call us at ${STORE_PHONE}.`;
     }
 
     if (result.customerPhone) {
       sendCancellationSMS(result.customerPhone, booking_id).catch(err =>
-        console.error('[cancel_sms] Error:', err)
+        console.error('[cancel_sms]', String(err))
       );
     }
 
-    return `Your appointment has been successfully cancelled${result.customerName ? `, ${result.customerName}` : ''}. We hope to see you at Mayller Bridal soon! Call us at ${STORE_PHONE} whenever you're ready to rebook. Is there anything else I can help you with?`;
+    return `Your appointment has been successfully cancelled${result.customerName ? `, ${result.customerName}` : ''}. We hope to see you at Mayller Bridal soon! Call us at ${STORE_PHONE} whenever you're ready to rebook.`;
   } catch (err) {
-    console.error('[cancel_booking] Error:', err);
+    console.error('[cancel_booking] Exception:', String(err));
     return `I had trouble cancelling that booking. Please call us directly at ${STORE_PHONE}.`;
   }
 }
 
-// ── Main Route Handler ────────────────────────────────────────
+// ── Route Handler ─────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  let rawBody = '';
   try {
-    const body: VapiRequest = await req.json();
+    rawBody = await req.text();
+    console.log('[vapi/tools] Raw body:', rawBody.substring(0, 500));
 
-    if (body.message?.type !== 'tool-calls') {
-      return NextResponse.json({ results: [] });
+    const body = JSON.parse(rawBody);
+    const msgType = body?.message?.type;
+    console.log('[vapi/tools] message.type:', msgType);
+
+    let toolCalls: Array<{ id: string; name: string; arguments: string }> = [];
+
+    if (msgType === 'tool-calls') {
+      const list = body.message?.toolCallList ?? [];
+      toolCalls = list.map((c: { id: string; function: { name: string; arguments: string } }) => ({
+        id: c.id,
+        name: c.function?.name,
+        arguments: c.function?.arguments || '{}',
+      }));
+    } else if (msgType === 'function-call') {
+      const fc = body.message?.functionCall;
+      if (fc) {
+        toolCalls = [{
+          id: body.message?.call?.id ?? 'legacy-call',
+          name: fc.name,
+          arguments: typeof fc.parameters === 'string' ? fc.parameters : JSON.stringify(fc.parameters || {}),
+        }];
+      }
+    } else {
+      console.log('[vapi/tools] Unhandled message type:', msgType, '— keys:', Object.keys(body?.message ?? {}).join(', '));
+      return NextResponse.json({ results: [] }, { headers: CORS });
     }
 
-    const toolCallList = body.message.toolCallList ?? [];
+    if (toolCalls.length === 0) {
+      console.log('[vapi/tools] No tool calls found');
+      return NextResponse.json({ results: [] }, { headers: CORS });
+    }
 
-    const results: ToolResult[] = await Promise.all(
-      toolCallList.map(async (call) => {
+    const results = await Promise.all(
+      toolCalls.map(async (call) => {
         let args: Record<string, string> = {};
         try {
-          args = JSON.parse(call.function.arguments || '{}');
+          args = JSON.parse(call.arguments);
         } catch {
-          // ignore parse errors
+          console.error('[vapi/tools] Failed to parse arguments:', call.arguments);
         }
 
-        let result: string;
+        console.log('[vapi/tools] Calling:', call.name, JSON.stringify(args));
 
-        switch (call.function.name) {
+        let result: string;
+        switch (call.name) {
           case 'check_availability':
             result = await handleCheckAvailability(args);
             break;
@@ -215,32 +218,22 @@ export async function POST(req: NextRequest) {
             result = await handleCancelBooking(args);
             break;
           default:
-            result = `Unknown function: ${call.function.name}`;
+            result = `Unknown function: ${call.name}`;
+            console.error('[vapi/tools] Unknown function:', call.name);
         }
 
+        console.log('[vapi/tools] Result:', result.substring(0, 120));
         return { toolCallId: call.id, result };
       })
     );
 
-    return NextResponse.json({ results }, {
-      headers: { 'Access-Control-Allow-Origin': '*' },
-    });
+    return NextResponse.json({ results }, { headers: CORS });
+
   } catch (err) {
-    console.error('[vapi/tools] Unhandled error:', err);
+    console.error('[vapi/tools] Unhandled error:', String(err), '| body:', rawBody.substring(0, 200));
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } }
+      { status: 500, headers: CORS }
     );
   }
-}
-
-// Allow Vapi to call this endpoint from any origin
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
 }
