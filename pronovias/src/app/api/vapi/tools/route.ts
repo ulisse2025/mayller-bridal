@@ -57,7 +57,6 @@ async function handleCheckAvailability(
     return 'I need a date to check availability. What date were you thinking?';
   }
 
-  // Validate date format
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return `Please provide the date in YYYY-MM-DD format. For example, 2026-06-15 for June 15th.`;
   }
@@ -71,7 +70,6 @@ async function handleCheckAvailability(
     const slots = await getAvailableSlots(date, type);
 
     if (slots.length === 0) {
-      // Check if it's a closed day
       const [year, month, day] = date.split('-').map(Number);
       const dateObj = new Date(year, month - 1, day);
       const dow = dateObj.getDay();
@@ -90,8 +88,6 @@ async function handleCheckAvailability(
     }
 
     const friendlyDate = formatDate(date);
-
-    // Present at most 5 options to keep the conversation focused
     const displayed = slots.slice(0, 5);
     const more = slots.length > 5 ? ` (and ${slots.length - 5} more)` : '';
 
@@ -105,17 +101,8 @@ async function handleCheckAvailability(
 async function handleCreateBooking(
   args: Record<string, string>
 ): Promise<string> {
-  const {
-    customer_name,
-    customer_phone,
-    customer_email,
-    date,
-    time,
-    appointment_type,
-    notes,
-  } = args;
+  const { customer_name, customer_phone, customer_email, date, time, appointment_type, notes } = args;
 
-  // Validate required fields
   const missing: string[] = [];
   if (!customer_name) missing.push('your full name');
   if (!customer_phone) missing.push('your phone number');
@@ -126,9 +113,7 @@ async function handleCreateBooking(
     return `Before I confirm the booking, I still need: ${missing.join(', ')}. Could you provide that?`;
   }
 
-  const type: AppointmentType = normalizeAppointmentType(
-    appointment_type || 'wedding_consultation'
-  );
+  const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
   const config = APPOINTMENT_CONFIG[type];
 
   try {
@@ -142,7 +127,6 @@ async function handleCreateBooking(
       notes: notes || undefined,
     });
 
-    // Send notifications in the background — don't block Sofia's response
     Promise.all([
       sendConfirmationSMS(booking),
       sendConfirmationEmail(booking),
@@ -178,14 +162,12 @@ async function handleCancelBooking(
   }
 
   try {
-    // Accept both short (8-char) and full UUID formats
     const result = await cancelBookingById(booking_id);
 
     if (!result.success) {
       return `I could not find a booking with that ID. Please double-check the code in your confirmation SMS. If you're still having trouble, call us at ${STORE_PHONE}.`;
     }
 
-    // Send cancellation SMS in background
     if (result.customerPhone) {
       sendCancellationSMS(result.customerPhone, booking_id).catch(err =>
         console.error('[cancel_sms] Error:', err)
@@ -205,7 +187,6 @@ export async function POST(req: NextRequest) {
   try {
     const body: VapiRequest = await req.json();
 
-    // Only handle tool-call messages
     if (body.message?.type !== 'tool-calls') {
       return NextResponse.json({ results: [] });
     }
@@ -218,7 +199,7 @@ export async function POST(req: NextRequest) {
         try {
           args = JSON.parse(call.function.arguments || '{}');
         } catch {
-          // ignore parse errors — args stays empty
+          // ignore parse errors
         }
 
         let result: string;
@@ -241,12 +222,14 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results }, {
+      headers: { 'Access-Control-Allow-Origin': '*' },
+    });
   } catch (err) {
     console.error('[vapi/tools] Unhandled error:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } }
     );
   }
 }
