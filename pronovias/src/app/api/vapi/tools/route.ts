@@ -33,8 +33,10 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
     return 'I need a date to check availability. What date were you thinking?';
   }
 
-  const normalizedDate = date.trim();
+  // Normalize date — accept both YYYY-MM-DD and other formats
+  let normalizedDate = date.trim();
 
+  // If already YYYY-MM-DD, keep it
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
     console.error('[check_availability] Invalid date format:', normalizedDate);
     return `I need the date in a standard format. Could you say the date again, like "May 20th" or "next Tuesday"?`;
@@ -46,7 +48,7 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
   try {
     console.log('[check_availability] Querying calendar for date:', normalizedDate, 'type:', type);
     const slots = await getAvailableSlots(normalizedDate, type);
-    console.log('[check_availability] Slots returned:', slots.length, JSON.stringify(slots.slice(0, 3)));
+    console.log('[check_availability] Slots returned:', slots.length, slots.slice(0, 3));
 
     if (slots.length === 0) {
       const [year, month, day] = normalizedDate.split('-').map(Number);
@@ -167,16 +169,22 @@ export async function POST(req: NextRequest) {
     const msgType = body?.message?.type;
     console.log('[vapi/tools] message.type:', msgType);
 
-    let toolCalls: Array<{ id: string; name: string; arguments: string }> = [];
+    // ── Handle both Vapi formats ──────────────────────────────
+    // New format: message.type = "tool-calls", message.toolCallList = [...]
+    // Old format: message.type = "function-call", message.functionCall = {...}
+
+    // arguments can be a JSON string OR an already-parsed object (Vapi sends both)
+    let toolCalls: Array<{ id: string; name: string; arguments: string | Record<string, unknown> }> = [];
 
     if (msgType === 'tool-calls') {
       const list = body.message?.toolCallList ?? [];
-      toolCalls = list.map((c: { id: string; function: { name: string; arguments: string } }) => ({
+      toolCalls = list.map((c: { id: string; function: { name: string; arguments: string | Record<string, unknown> } }) => ({
         id: c.id,
         name: c.function?.name,
-        arguments: c.function?.arguments || '{}',
+        arguments: c.function?.arguments ?? {},
       }));
     } else if (msgType === 'function-call') {
+      // Legacy Vapi format
       const fc = body.message?.functionCall;
       if (fc) {
         toolCalls = [{
@@ -186,12 +194,13 @@ export async function POST(req: NextRequest) {
         }];
       }
     } else {
-      console.log('[vapi/tools] Unhandled message type:', msgType, '— keys:', Object.keys(body?.message ?? {}).join(', '));
+      // Unknown type — log and return empty
+      console.log('[vapi/tools] Unhandled message type:', msgType, '— body keys:', Object.keys(body?.message ?? {}).join(', '));
       return NextResponse.json({ results: [] }, { headers: CORS });
     }
 
     if (toolCalls.length === 0) {
-      console.log('[vapi/tools] No tool calls found');
+      console.log('[vapi/tools] No tool calls found in message');
       return NextResponse.json({ results: [] }, { headers: CORS });
     }
 
@@ -199,12 +208,18 @@ export async function POST(req: NextRequest) {
       toolCalls.map(async (call) => {
         let args: Record<string, string> = {};
         try {
-          args = JSON.parse(call.arguments);
+          if (typeof call.arguments === 'string') {
+            // Vapi sends arguments as a JSON string
+            args = JSON.parse(call.arguments);
+          } else if (call.arguments && typeof call.arguments === 'object') {
+            // Vapi sends arguments already parsed as an object
+            args = call.arguments as Record<string, string>;
+          }
         } catch {
           console.error('[vapi/tools] Failed to parse arguments:', call.arguments);
         }
 
-        console.log('[vapi/tools] Calling:', call.name, JSON.stringify(args));
+        console.log('[vapi/tools] Calling function:', call.name, 'with args:', JSON.stringify(args));
 
         let result: string;
         switch (call.name) {
@@ -219,10 +234,10 @@ export async function POST(req: NextRequest) {
             break;
           default:
             result = `Unknown function: ${call.name}`;
-            console.error('[vapi/tools] Unknown function:', call.name);
+            console.error('[vapi/tools] Unknown function called:', call.name);
         }
 
-        console.log('[vapi/tools] Result:', result.substring(0, 120));
+        console.log('[vapi/tools] Result for', call.name, ':', result.substring(0, 100));
         return { toolCallId: call.id, result };
       })
     );
@@ -230,7 +245,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ results }, { headers: CORS });
 
   } catch (err) {
-    console.error('[vapi/tools] Unhandled error:', String(err), '| body:', rawBody.substring(0, 200));
+    console.error('[vapi/tools] Unhandled error:', String(err), '| body preview:', rawBody.substring(0, 200));
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500, headers: CORS }
