@@ -106,10 +106,18 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
 
     console.log('[create_booking] Success, bookingId:', booking.bookingId);
 
-    Promise.all([
-      sendConfirmationSMS(booking),
-      sendConfirmationEmail(booking),
-    ]).catch(err => console.error('[notifications] Error:', String(err)));
+    // ── Await notifications with 9s timeout (fire-and-forget is killed by Vercel before it runs) ──
+    try {
+      await Promise.race([
+        Promise.all([
+          sendConfirmationSMS(booking),
+          sendConfirmationEmail(booking),
+        ]),
+        new Promise<void>(resolve => setTimeout(resolve, 9_000)),
+      ]);
+    } catch (notifErr) {
+      console.error('[notifications] Error:', String(notifErr));
+    }
 
     const shortId = booking.bookingId.slice(0, 8).toUpperCase();
 
@@ -181,7 +189,7 @@ export async function POST(req: NextRequest) {
       toolCalls = list.map((c: { id: string; function: { name: string; arguments: string | Record<string, unknown> } }) => ({
         id: c.id,
         name: c.function?.name,
-        arguments: c.function?.arguments ?? {},
+        arguments: c.function?.arguments || '{}',
       }));
     } else if (msgType === 'function-call') {
       // Legacy Vapi format
