@@ -1,11 +1,11 @@
 // ============================================================
 // MAYLLER BRIDAL — Booking System
 // lib/notifications.ts
-// Email via Gmail (Nodemailer + App Password) + SMS via Twilio
+// Email via Gmail (Nodemailer + App Password) + SMS via Twilio REST API
+// NOTE: SMS uses fetch() directly — no Twilio SDK / no Axios 30s timeout
 // ============================================================
 
 import nodemailer from 'nodemailer';
-import twilio from 'twilio';
 import {
   BookingResult,
   APPOINTMENT_CONFIG,
@@ -27,13 +27,39 @@ function getMailTransporter() {
   });
 }
 
-// ── SMS (Twilio) ──────────────────────────────────────────────
+// ── SMS via Twilio REST API (no SDK, no Axios) ────────────────
 
-function getTwilioClient() {
-  return twilio(
-    process.env.TWILIO_ACCOUNT_SID!,
-    process.env.TWILIO_AUTH_TOKEN!,
+/**
+ * Send an SMS via Twilio REST API using native fetch().
+ * Uses AbortSignal.timeout(8000) to fail fast if Twilio is unreachable.
+ */
+async function sendTwilioSMS(to: string, body: string): Promise<void> {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID!;
+  const authToken  = process.env.TWILIO_AUTH_TOKEN!;
+  const from       = process.env.TWILIO_PHONE_NUMBER!;
+
+  const credentials = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+
+  const resp = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ From: from, To: to, Body: body }).toString(),
+      signal: AbortSignal.timeout(8_000), // fail in 8s, not 30s
+    }
   );
+
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '');
+    throw new Error(`Twilio HTTP ${resp.status}: ${txt.substring(0, 200)}`);
+  }
+
+  const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
+  console.log('[sms] Twilio sent, sid:', data.sid ?? 'unknown');
 }
 
 function formatPhone(phone: string): string {
@@ -216,7 +242,7 @@ export async function sendConfirmationEmail(booking: BookingResult): Promise<voi
 }
 
 /**
- * Send SMS confirmation to customer via Twilio.
+ * Send SMS confirmation to customer via Twilio REST API.
  */
 export async function sendConfirmationSMS(booking: BookingResult): Promise<void> {
   if (!booking.customerPhone) return;
@@ -225,24 +251,16 @@ export async function sendConfirmationSMS(booking: BookingResult): Promise<void>
   const shortId = booking.bookingId.slice(0, 8).toUpperCase();
 
   const body = [
-    `✨ ${STORE_NAME}`,
-    `Appointment CONFIRMED!`,
-    ``,
-    `📋 ${config.label}`,
-    `📅 ${formatDate(booking.date)}`,
-    `🕐 ${booking.time}`,
-    `📍 ${STORE_ADDRESS}`,
-    ``,
+    `Mayller Bridal - Appointment CONFIRMED`,
+    `Type: ${config.label}`,
+    `Date: ${formatDate(booking.date)}`,
+    `Time: ${booking.time}`,
+    `Location: ${STORE_ADDRESS}`,
     `ID: ${shortId}`,
-    `Cancel/reschedule: ${STORE_PHONE}`,
+    `Questions? Call ${STORE_PHONE}`,
   ].join('\n');
 
-  const client = getTwilioClient();
-  await client.messages.create({
-    from: process.env.TWILIO_PHONE_NUMBER!,
-    to: formatPhone(booking.customerPhone),
-    body,
-  });
+  await sendTwilioSMS(formatPhone(booking.customerPhone), body);
 }
 
 /**
@@ -253,15 +271,12 @@ export async function sendCancellationSMS(
   bookingId: string
 ): Promise<void> {
   const shortId = bookingId.slice(0, 8).toUpperCase();
-  const client = getTwilioClient();
 
-  await client.messages.create({
-    from: process.env.TWILIO_PHONE_NUMBER!,
-    to: formatPhone(customerPhone),
-    body: [
-      `${STORE_NAME}`,
-      `Your appointment (ID: ${shortId}) has been cancelled.`,
-      `To rebook, call ${STORE_PHONE} or visit mayllerbridalitalianstyle.com`,
-    ].join('\n'),
-  });
+  const body = [
+    `Mayller Bridal`,
+    `Your appointment (ID: ${shortId}) has been cancelled.`,
+    `To rebook, call ${STORE_PHONE}`,
+  ].join('\n');
+
+  await sendTwilioSMS(formatPhone(customerPhone), body);
 }
