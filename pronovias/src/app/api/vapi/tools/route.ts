@@ -22,6 +22,34 @@ export async function OPTIONS() {
   return new NextResponse(null, { headers: CORS });
 }
 
+// ── Date Helpers ──────────────────────────────────────────────
+
+/**
+ * Returns today's date in YYYY-MM-DD format (Eastern Time).
+ */
+function todayET(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+  }).format(new Date());
+}
+
+/**
+ * Auto-corrects the year if the AI sent a past year.
+ * Example: "2025-05-20" → "2026-05-20" when current year is 2026.
+ * This prevents the AI from booking in the past due to training cutoff confusion.
+ */
+function correctYear(date: string): string {
+  const currentYear = new Date().getFullYear();
+  const [yearStr, ...rest] = date.split('-');
+  const year = parseInt(yearStr, 10);
+  if (year < currentYear) {
+    const corrected = `${currentYear}-${rest.join('-')}`;
+    console.log(`[date-correction] Auto-corrected year: ${date} → ${corrected}`);
+    return corrected;
+  }
+  return date;
+}
+
 // ── Tool Handlers ─────────────────────────────────────────────
 
 async function handleCheckAvailability(args: Record<string, string>): Promise<string> {
@@ -30,7 +58,7 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
   console.log('[check_availability] args received:', JSON.stringify(args));
 
   if (!date) {
-    return 'I need a date to check availability. What date were you thinking?';
+    return `Today is ${todayET()}. I need a date to check availability. What date were you thinking?`;
   }
 
   // Normalize date — accept both YYYY-MM-DD and other formats
@@ -39,8 +67,11 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
   // If already YYYY-MM-DD, keep it
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
     console.error('[check_availability] Invalid date format:', normalizedDate);
-    return `I need the date in a standard format. Could you say the date again, like "May 20th" or "next Tuesday"?`;
+    return `I need the date in a standard format. Could you say the date again, like "May 20th" or "next Tuesday"? (Today is ${todayET()})`;
   }
+
+  // ── Auto-correct year if AI sent 2025 instead of 2026 ──────
+  normalizedDate = correctYear(normalizedDate);
 
   const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
   const config = APPOINTMENT_CONFIG[type];
@@ -50,31 +81,34 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
     const slots = await getAvailableSlots(normalizedDate, type);
     console.log('[check_availability] Slots returned:', slots.length, slots.slice(0, 3));
 
+    const today = todayET();
+
     if (slots.length === 0) {
       const [year, month, day] = normalizedDate.split('-').map(Number);
       const dateObj = new Date(year, month - 1, day);
       const dow = dateObj.getDay();
 
       if (!BUSINESS_HOURS.openDays.includes(dow as (typeof BUSINESS_HOURS.openDays)[number])) {
-        return `We are closed on Sundays. Our boutique is open Monday through Saturday, 10:00 AM to 6:00 PM. Would you like to try a different day?`;
+        return `Today is ${today}. We are closed on Sundays. Our boutique is open Monday through Saturday, 10:00 AM to 6:00 PM. Would you like to try a different day?`;
       }
-      return `Unfortunately we have no available slots on ${formatDate(normalizedDate)} for a ${config.label}. Would you like to try another date?`;
+      return `Today is ${today}. Unfortunately we have no available slots on ${formatDate(normalizedDate)} for a ${config.label}. Would you like to try another date?`;
     }
 
     const displayed = slots.slice(0, 5);
     const more = slots.length > 5 ? ` (and ${slots.length - 5} more)` : '';
-    return `We have the following openings for a ${config.label} on ${formatDate(normalizedDate)}: ${displayed.join(', ')}${more}. Which time works best for you?`;
+    return `Today is ${todayET()}. We have the following openings for a ${config.label} on ${formatDate(normalizedDate)}: ${displayed.join(', ')}${more}. Which time works best for you?`;
 
   } catch (err) {
     console.error('[check_availability] Exception:', String(err));
-    return `I'm having trouble checking availability right now. Please call us directly at ${STORE_PHONE} and we'll be happy to help.`;
+    return `I'm having trouble checking availability right now. Please call us directly at ${STORE_PHONE} and we'll be happy to help. (Today is ${todayET()})`;
   }
 }
 
 async function handleCreateBooking(args: Record<string, string>): Promise<string> {
   console.log('[create_booking] args received:', JSON.stringify(args));
 
-  const { customer_name, customer_phone, customer_email, date, time, appointment_type, notes } = args;
+  const { customer_name, customer_phone, customer_email, time, appointment_type, notes } = args;
+  let { date } = args;
 
   const missing: string[] = [];
   if (!customer_name) missing.push('your full name');
@@ -82,18 +116,21 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
   if (!date) missing.push('the date');
   if (!time) missing.push('the time');
   if (missing.length > 0) {
-    return `Before I confirm the booking, I still need: ${missing.join(', ')}. Could you provide that?`;
+    return `Before I confirm the booking, I still need: ${missing.join(', ')}. Could you provide that? (Today is ${todayET()})`;
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return `I have a problem with the date format. Could you repeat the date?`;
+    return `I have a problem with the date format. Could you repeat the date? (Today is ${todayET()})`;
   }
+
+  // ── Auto-correct year if AI sent 2025 instead of 2026 ──────
+  date = correctYear(date);
 
   const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
   const config = APPOINTMENT_CONFIG[type];
 
   try {
-    console.log('[create_booking] Creating event in calendar...');
+    console.log('[create_booking] Creating event in calendar for date:', date);
     const booking = await createBooking({
       customerName: customer_name,
       customerPhone: customer_phone,
