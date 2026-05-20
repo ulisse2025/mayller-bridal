@@ -35,11 +35,21 @@ function getMailTransporter() {
  */
 async function sendTwilioSMS(to: string, body: string): Promise<void> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID!;
-  const authToken  = process.env.TWILIO_AUTH_TOKEN!;
-  const from       = process.env.TWILIO_PHONE_NUMBER!;
+  const authToken = process.env.TWILIO_AUTH_TOKEN!;
+  const from = process.env.TWILIO_PHONE_NUMBER!;
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
   const credentials = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
 
+  // Use MessagingServiceSid for A2P 10DLC compliance
+  const smsParams: Record<string, string> = { To: to, Body: body };
+  if (messagingServiceSid) {
+    smsParams.MessagingServiceSid = messagingServiceSid;
+    console.log('[sms] Using MessagingServiceSid for A2P compliance');
+  } else {
+    smsParams.From = from;
+    console.log('[sms] Falling back to direct From number');
+  }
   const resp = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
     {
@@ -48,7 +58,7 @@ async function sendTwilioSMS(to: string, body: string): Promise<void> {
         Authorization: `Basic ${credentials}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({ From: from, To: to, Body: body }).toString(),
+      body: new URLSearchParams(smsParams).toString(),
       signal: AbortSignal.timeout(8_000), // fail in 8s, not 30s
     }
   );
