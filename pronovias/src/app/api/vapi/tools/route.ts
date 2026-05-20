@@ -11,7 +11,7 @@ import {
   STORE_ADDRESS,
 } from '@/lib/booking-types';
 
-// ── CORS Headers ──────────────────────────────────────────────
+// ââ CORS Headers ââââââââââââââââââââââââââââââââââââââââââââââ
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -22,7 +22,7 @@ export async function OPTIONS() {
   return new NextResponse(null, { headers: CORS });
 }
 
-// ── Date Helpers ──────────────────────────────────────────────
+// ââ Date/Time Helpers âââââââââââââââââââââââââââââââââââââââââ
 
 /**
  * Returns today's date in YYYY-MM-DD format (Eastern Time).
@@ -34,9 +34,30 @@ function todayET(): string {
 }
 
 /**
+ * Returns a full human-readable date + time string in Eastern Time.
+ * Example: "Wednesday, May 20, 2026 at 2:30 PM Eastern Time"
+ */
+function nowET(): string {
+  const now = new Date();
+  const datePart = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(now);
+  const timePart = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(now);
+  return `${datePart} at ${timePart} Eastern Time`;
+}
+
+/**
  * Auto-corrects the year if the AI sent a past year.
- * Example: "2025-05-20" → "2026-05-20" when current year is 2026.
- * This prevents the AI from booking in the past due to training cutoff confusion.
+ * Example: "2025-05-20" â "2026-05-20" when current year is 2026.
  */
 function correctYear(date: string): string {
   const currentYear = new Date().getFullYear();
@@ -44,13 +65,40 @@ function correctYear(date: string): string {
   const year = parseInt(yearStr, 10);
   if (year < currentYear) {
     const corrected = `${currentYear}-${rest.join('-')}`;
-    console.log(`[date-correction] Auto-corrected year: ${date} → ${corrected}`);
+    console.log(`[date-correction] Auto-corrected year: ${date} â ${corrected}`);
     return corrected;
   }
   return date;
 }
 
-// ── Tool Handlers ─────────────────────────────────────────────
+// ââ Tool Handlers âââââââââââââââââââââââââââââââââââââââââââââ
+
+/**
+ * Returns the current date and time in Eastern Time.
+ * Sofia should call this at the start of every conversation.
+ */
+function handleGetCurrentDatetime(): string {
+  const isoDate = todayET();
+  const humanDate = nowET();
+  console.log('[get_current_datetime] Called â returning:', humanDate);
+  return (
+    `Current date and time in Eastern Time: ${humanDate}. ` +
+    `ISO date for booking requests: ${isoDate}. ` +
+    `Business hours: MondayâSaturday, 10:00 AM to 6:00 PM Eastern.`
+  );
+}
+
+/**
+ * Ends the call gracefully.
+ * This tool must be configured with "endCall": true in the Vapi assistant.
+ */
+function handleEndCall(): string {
+  console.log('[end_call] Ending call gracefully');
+  return (
+    'Thank you for calling Mayller Bridal Italian Style. ' +
+    'We look forward to seeing you! Have a wonderful day. Goodbye!'
+  );
+}
 
 async function handleCheckAvailability(args: Record<string, string>): Promise<string> {
   const { date, appointment_type } = args;
@@ -61,16 +109,15 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
     return `Today is ${todayET()}. I need a date to check availability. What date were you thinking?`;
   }
 
-  // Normalize date — accept both YYYY-MM-DD and other formats
+  // Normalize date â accept YYYY-MM-DD format
   let normalizedDate = date.trim();
 
-  // If already YYYY-MM-DD, keep it
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
     console.error('[check_availability] Invalid date format:', normalizedDate);
     return `I need the date in a standard format. Could you say the date again, like "May 20th" or "next Tuesday"? (Today is ${todayET()})`;
   }
 
-  // ── Auto-correct year if AI sent 2025 instead of 2026 ──────
+  // Auto-correct year if AI sent 2025 instead of 2026
   normalizedDate = correctYear(normalizedDate);
 
   const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
@@ -110,6 +157,7 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
   const { customer_name, customer_phone, customer_email, time, appointment_type, notes } = args;
   let { date } = args;
 
+  // ââ Validate required fields âââââââââââââââââââââââââââââââ
   const missing: string[] = [];
   if (!customer_name) missing.push('your full name');
   if (!customer_phone) missing.push('your phone number');
@@ -123,14 +171,46 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
     return `I have a problem with the date format. Could you repeat the date? (Today is ${todayET()})`;
   }
 
-  // ── Auto-correct year if AI sent 2025 instead of 2026 ──────
+  // Auto-correct year if AI sent 2025 instead of 2026
   date = correctYear(date);
 
   const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
   const config = APPOINTMENT_CONFIG[type];
 
+  // ââ Validate time format and business hours âââââââââââââââ
+  console.log('[create_booking] Raw time received from Vapi:', JSON.stringify(time));
+  const timePattern = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
+  const time24Pattern = /^(\d{1,2}):(\d{2})$/;
+
+  let parsedHours = -1;
+  let parsedMinutes = 0;
+
+  if (timePattern.test(time.trim())) {
+    const m = time.trim().match(timePattern)!;
+    parsedHours = parseInt(m[1], 10);
+    parsedMinutes = parseInt(m[2], 10);
+    const ampm = m[3].toUpperCase();
+    if (ampm === 'PM' && parsedHours !== 12) parsedHours += 12;
+    if (ampm === 'AM' && parsedHours === 12) parsedHours = 0;
+  } else if (time24Pattern.test(time.trim())) {
+    const m = time.trim().match(time24Pattern)!;
+    parsedHours = parseInt(m[1], 10);
+    parsedMinutes = parseInt(m[2], 10);
+  } else {
+    console.error('[create_booking] Invalid time format received:', time);
+    return `I'm having trouble understanding the time "${time}". Could you repeat it in a format like "10:00 AM" or "2:30 PM"? (Today is ${todayET()})`;
+  }
+
+  // Validate that the time is within business hours
+  if (parsedHours < BUSINESS_HOURS.start || parsedHours >= BUSINESS_HOURS.end) {
+    const openFrom = `${BUSINESS_HOURS.start > 12 ? BUSINESS_HOURS.start - 12 : BUSINESS_HOURS.start}:00 ${BUSINESS_HOURS.start >= 12 ? 'PM' : 'AM'}`;
+    const openTo = `${BUSINESS_HOURS.end > 12 ? BUSINESS_HOURS.end - 12 : BUSINESS_HOURS.end}:00 ${BUSINESS_HOURS.end >= 12 ? 'PM' : 'AM'}`;
+    console.warn('[create_booking] Time outside business hours:', time, 'parsedHours:', parsedHours);
+    return `I'm sorry, but ${time} is outside our business hours. We're open from ${openFrom} to ${openTo} Eastern Time, Monday through Saturday. What time within those hours works for you?`;
+  }
+
   try {
-    console.log('[create_booking] Creating event in calendar for date:', date);
+    console.log('[create_booking] Creating event in calendar for date:', date, 'time:', time);
     const booking = await createBooking({
       customerName: customer_name,
       customerPhone: customer_phone,
@@ -143,7 +223,7 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
 
     console.log('[create_booking] Success, bookingId:', booking.bookingId);
 
-    // ── Await notifications with 9s timeout (fire-and-forget is killed by Vercel before it runs) ──
+    // ââ Await notifications with 9s timeout âââââââââââââââââââ
     try {
       await Promise.race([
         Promise.all([
@@ -180,7 +260,7 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
 async function handleCancelBooking(args: Record<string, string>): Promise<string> {
   const { booking_id } = args;
   if (!booking_id) {
-    return `To cancel your appointment I need your booking ID — the 8-character code from your confirmation text. What is it?`;
+    return `To cancel your appointment I need your booking ID â the 8-character code from your confirmation text. What is it?`;
   }
 
   try {
@@ -202,7 +282,7 @@ async function handleCancelBooking(args: Record<string, string>): Promise<string
   }
 }
 
-// ── Route Handler ─────────────────────────────────────────────
+// ââ Route Handler âââââââââââââââââââââââââââââââââââââââââââââ
 
 export async function POST(req: NextRequest) {
   let rawBody = '';
@@ -214,11 +294,33 @@ export async function POST(req: NextRequest) {
     const msgType = body?.message?.type;
     console.log('[vapi/tools] message.type:', msgType);
 
-    // ── Handle both Vapi formats ──────────────────────────────
+    // ââ Handle assistant-request âââââââââââââââââââââââââââââââ
+    // Vapi sends this when a call starts â inject current date/time into first message.
+    if (msgType === 'assistant-request') {
+      const currentDateTime = nowET();
+      const isoDate = todayET();
+      console.log('[vapi/tools] assistant-request â injecting date:', currentDateTime);
+      return NextResponse.json({
+        assistant: {
+          firstMessage: `Hello! Thank you for calling Mayller Bridal Italian Style. I'm Sofia, your AI appointment assistant. Today is ${currentDateTime}. How can I help you today?`,
+          model: {
+            provider: 'openai',
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'system',
+                content: `Today's date is ${currentDateTime}. ISO date: ${isoDate}. Business hours: MondayâSaturday, 10:00 AM to 6:00 PM Eastern Time.`,
+              },
+            ],
+          },
+        },
+      }, { headers: CORS });
+    }
+
+    // ââ Handle both Vapi tool-call formats âââââââââââââââââââââ
     // New format: message.type = "tool-calls", message.toolCallList = [...]
     // Old format: message.type = "function-call", message.functionCall = {...}
 
-    // arguments can be a JSON string OR an already-parsed object (Vapi sends both)
     let toolCalls: Array<{ id: string; name: string; arguments: string | Record<string, unknown> }> = [];
 
     if (msgType === 'tool-calls') {
@@ -239,8 +341,7 @@ export async function POST(req: NextRequest) {
         }];
       }
     } else {
-      // Unknown type — log and return empty
-      console.log('[vapi/tools] Unhandled message type:', msgType, '— body keys:', Object.keys(body?.message ?? {}).join(', '));
+      console.log('[vapi/tools] Unhandled message type:', msgType, 'â body keys:', Object.keys(body?.message ?? {}).join(', '));
       return NextResponse.json({ results: [] }, { headers: CORS });
     }
 
@@ -254,10 +355,8 @@ export async function POST(req: NextRequest) {
         let args: Record<string, string> = {};
         try {
           if (typeof call.arguments === 'string') {
-            // Vapi sends arguments as a JSON string
             args = JSON.parse(call.arguments);
           } else if (call.arguments && typeof call.arguments === 'object') {
-            // Vapi sends arguments already parsed as an object
             args = call.arguments as Record<string, string>;
           }
         } catch {
@@ -268,6 +367,9 @@ export async function POST(req: NextRequest) {
 
         let result: string;
         switch (call.name) {
+          case 'get_current_datetime':
+            result = handleGetCurrentDatetime();
+            break;
           case 'check_availability':
             result = await handleCheckAvailability(args);
             break;
@@ -276,6 +378,9 @@ export async function POST(req: NextRequest) {
             break;
           case 'cancel_booking':
             result = await handleCancelBooking(args);
+            break;
+          case 'end_call':
+            result = handleEndCall();
             break;
           default:
             result = `Unknown function: ${call.name}`;
