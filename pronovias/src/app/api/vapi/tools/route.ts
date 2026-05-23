@@ -217,6 +217,15 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
     return `I'm sorry, but ${time} is outside our business hours. We're open from ${openFrom} to ${openTo} Eastern Time, Monday through Saturday. What time within those hours works for you?`;
   }
 
+  // ── Verify slot is still available (prevents overlaps across all appointment types) ──
+  const h12 = parsedHours === 0 ? 12 : parsedHours > 12 ? parsedHours - 12 : parsedHours;
+  const ampm = parsedHours >= 12 ? 'PM' : 'AM';
+  const timeKey = h12 + ':' + parsedMinutes.toString().padStart(2, '0') + ' ' + ampm;
+  const availableSlots = await getAvailableSlots(date, type);
+  if (!availableSlots.includes(timeKey)) {
+    console.warn('[create_booking] Slot unavailable:', timeKey, 'available:', availableSlots);
+    return "I'm sorry, but " + time + ' on ' + formatDate(date) + ' is no longer available for a ' + config.label + '. Would you like me to check what times are still open?';
+  }
   try {
     console.log('[create_booking] Creating event in calendar for date:', date, 'time:', time);
     const booking = await createBooking({
