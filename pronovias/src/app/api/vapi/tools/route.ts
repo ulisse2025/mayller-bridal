@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAvailableSlots, createBooking, cancelBookingById } from '@/lib/vapi-calendar';
-import { sendConfirmationEmail, sendConfirmationSMS, sendCancellationSMS } from '@/lib/notifications';
+import { sendConfirmationEmail, sendConfirmationSMS, sendCancellationSMS, sendCancellationEmail } from '@/lib/notifications';
 import {
   AppointmentType,
   APPOINTMENT_CONFIG,
@@ -289,6 +289,11 @@ async function handleCancelBooking(args: Record<string, string>): Promise<string
       );
     }
 
+    // Notify the store via email on cancellation
+    sendCancellationEmail(
+      result.customerName ?? 'Unknown',
+      booking_id,
+    ).catch(err => console.error('[cancel_email]', String(err)));
     return `Your appointment has been successfully cancelled${result.customerName ? `, ${result.customerName}` : ''}. We hope to see you at Mayller Bridal soon! Call us at ${STORE_PHONE} whenever you're ready to rebook.`;
   } catch (err) {
     console.error('[cancel_booking] Exception:', String(err));
