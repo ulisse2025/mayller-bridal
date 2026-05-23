@@ -151,6 +151,8 @@ export async function createBooking(req: BookingRequest): Promise<BookingResult>
   const calendar = getCalendarClient();
   const config = APPOINTMENT_CONFIG[req.appointmentType];
   const bookingId = randomUUID();
+  // FIX: short ID for customer-facing cancel/reschedule
+  const shortBookingId = bookingId.slice(0, 8).toUpperCase();
 
   const { hours, minutes } = parseTime(req.time);
 
@@ -189,6 +191,7 @@ export async function createBooking(req: BookingRequest): Promise<BookingResult>
       extendedProperties: {
         private: {
           bookingId,
+          shortBookingId,
           customerName: req.customerName,
           customerPhone: req.customerPhone,
           customerEmail: req.customerEmail ?? '',
@@ -222,9 +225,11 @@ export async function cancelBookingById(bookingId: string): Promise<{
 }> {
   const calendar = getCalendarClient();
 
+  // FIX: search by shortBookingId (8-char ID told to customer)
+  const shortId = bookingId.slice(0, 8).toUpperCase();
   const events = await calendar.events.list({
     calendarId: calendarId(),
-    privateExtendedProperty: [`bookingId=${bookingId}`],
+    privateExtendedProperty: [`shortBookingId=${shortId}`],
     maxResults: 1,
     showDeleted: false,
   });
@@ -251,9 +256,11 @@ export async function cancelBookingById(bookingId: string): Promise<{
 export async function getBookingById(bookingId: string) {
   const calendar = getCalendarClient();
 
+  // FIX: search by shortBookingId
+  const shortId = bookingId.slice(0, 8).toUpperCase();
   const events = await calendar.events.list({
     calendarId: calendarId(),
-    privateExtendedProperty: [`bookingId=${bookingId}`],
+    privateExtendedProperty: [`shortBookingId=${shortId}`],
     maxResults: 1,
     showDeleted: false,
   });
