@@ -141,9 +141,17 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
       return `Today is ${today}. Unfortunately we have no available slots on ${formatDate(normalizedDate)} for a ${config.label}. Would you like to try another date?`;
     }
 
-    const displayed = slots.slice(0, 5);
-    const more = slots.length > 5 ? ` (and ${slots.length - 5} more)` : '';
-    return `Today is ${todayET()}. We have the following openings for a ${config.label} on ${formatDate(normalizedDate)}: ${displayed.join(', ')}${more}. Which time works best for you?`;
+    // Voice-friendly: show all slots, grouped by morning/afternoon when many
+    if (slots.length <= 7) {
+      return `Today is ${todayET()}. For a ${config.label} on ${formatDate(normalizedDate)}, we have ${slots.length} time${slots.length === 1 ? '' : 's'} available: ${slots.join(', ')}. Which time works best for you?`;
+    }
+    // Many slots: group by morning/afternoon and ask preference
+    const morning = slots.filter((s: string) => s.endsWith('AM'));
+    const afternoon = slots.filter((s: string) => s.endsWith('PM'));
+    const parts: string[] = [];
+    if (morning.length > 0) parts.push(`${morning.length} morning slot${morning.length === 1 ? '' : 's'} from ${morning[0]} to ${morning[morning.length - 1]}`);
+    if (afternoon.length > 0) parts.push(`${afternoon.length} afternoon slot${afternoon.length === 1 ? '' : 's'} from ${afternoon[0]} to ${afternoon[afternoon.length - 1]}`);
+    return `Today is ${todayET()}. For a ${config.label} on ${formatDate(normalizedDate)}, we have ${slots.length} openings: ${parts.join(', and ')}. Would you prefer morning or afternoon? I can then list the exact times.`;
 
   } catch (err) {
     console.error('[check_availability] Exception:', String(err));
