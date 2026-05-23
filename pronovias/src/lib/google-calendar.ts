@@ -1,15 +1,16 @@
 /**
  * src/lib/google-calendar.ts
  *
- * Google Calendar integration for Mayller Bridal bookings.
+ * Google Calendar integration for the WEB booking flow.
  *
- * Fixes:
- * - Timezone changed from Europe/Rome â America/New_York
- * - BUG FIX: datetime is now built as a local-time string (no UTC 'Z' suffix)
- *   so Google Calendar interprets it correctly in America/New_York.
- *   Previous version used new Date() + setHours() which produced a UTC
- *   ISO string â causing every event to land 4-5 hours early (e.g. 6 AM
- *   instead of 10 AM).
+ * IMPORTANT: this file is the WEB path. Sofia (Vapi voice agent) uses a
+ * separate path: /lib/vapi-calendar.ts with its own credentials. Do NOT
+ * cross-wire the two.
+ *
+ * v2 (May 2026):
+ *  - createBookingEvent returns the calendar event id so the caller can
+ *    store it in Postgres (for cron mirror dedup).
+ *  - Added isSlotBusyOnCalendar() for realtime double-check.
  */
 
 import { google } from 'googleapis'
@@ -26,7 +27,6 @@ const SERVICE_LABELS: Record<string, string> = {
   wedding: 'Wedding Dress',
 }
 
-/** Build the OAuth2 client using env vars. */
 function getOAuthClient() {
   const client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -36,7 +36,6 @@ function getOAuthClient() {
   return client
 }
 
-/** Computes the right redirect URI for the current environment. */
 function getRedirectUri(): string {
   if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}/api/auth/google/callback`
@@ -52,7 +51,10 @@ export function getAuthUrl(): string {
   return client.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
-    scope: ['https://www.googleapis.com/auth/calendar.events'],
+    scope: [
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/calendar.readonly',
+    ],
   })
 }
 
@@ -66,18 +68,77 @@ export async function exchangeCodeForTokens(code: string) {
   return tokens
 }
 
-/** Zero-pad a number to 2 digits. */
 function pad(n: number): string {
   return String(n).padStart(2, '0')
 }
 
-/**
- * Build a local-time datetime string in YYYY-MM-DDTHH:MM:SS format.
- * NO 'Z' suffix â Google Calendar + timeZone parameter interprets this
- * as a wall-clock time in the given timezone (America/New_York).
- */
 function buildLocalDateTime(date: string, hours: number, minutes: number): string {
   return `${date}T${pad(hours)}:${pad(minutes)}:00`
+}
+
+/** Parse "10:00 AM" / "2:30 PM" into 24h {hh, mm}. */
+function parse12h(time: string): { hh: number; mm: number } {
+  const m = time.match(/(\d+):(\d+)\s*(AM|PM)/i)
+  let hh = m ? parseInt(m[1], 10) : 10
+  const mm = m ? parseInt(m[2], 10) : 0
+  const ap = m ? m[3].toUpperCase() : 'AM'
+  if (ap === 'PM' && hh !== 12) hh += 12
+  if (ap === 'AM' && hh === 12) hh = 0
+  return { hh, mm }
+}
+
+/**
+ * Convert a wall-clock string in America/New_York (e.g. "2026-06-15T10:00:00")
+ * to the corresponding UTC Date. Handles DST transparently by probing both
+ * EDT (-04:00) and EST (-05:00) and picking the one that round-trips through
+ * Intl.DateTimeFormat back to the requested wall-clock.
+ */
+function etLocalToUTC(localISO: string): Date {
+  for (const offset of ['-04:00', '-05:00']) {
+    const candidate = new Date(`${localISO}${offset}`)
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', hourCycle: 'h23',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+    }).formatToParts(candidate).reduce<Record<string, string>>((a, p) => {
+      if (p.type !== 'literal') a[p.type] = p.value
+      return a
+    }, {})
+    const wall = `${fmt.year}-${fmt.month}-${fmt.day}T${fmt.hour}:${fmt.minute}:00`
+    if (wall === localISO) return candidate
+  }
+  // Fallback (rare): use EST
+  return new Date(`${localISO}-05:00`)
+}
+
+/**
+ * Realtime freebusy check on the shared calendar.
+ * Returns true if the slot is currently busy (Sofia or web has taken it).
+ */
+export async function isSlotBusyOnCalendar(date: string, time: string, service: string): Promise<boolean> {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_REFRESH_TOKEN) return false
+
+  const { hh, mm } = parse12h(time)
+  const duration = DURATION_MINUTES[service] ?? 60
+  const startLocal = buildLocalDateTime(date, hh, mm)
+  const endMins = hh * 60 + mm + duration
+  const endLocal = buildLocalDateTime(date, Math.floor(endMins / 60), endMins % 60)
+
+  const startUTC = etLocalToUTC(startLocal)
+  const endUTC = etLocalToUTC(endLocal)
+
+  const calendar = google.calendar({ version: 'v3', auth: getOAuthClient() })
+  const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'
+
+  const res = await calendar.freebusy.query({
+    requestBody: {
+      timeMin: startUTC.toISOString(),
+      timeMax: endUTC.toISOString(),
+      items: [{ id: calendarId }],
+    },
+  })
+  const busy = res.data.calendars?.[calendarId]?.busy ?? []
+  return busy.length > 0
 }
 
 export async function createBookingEvent(data: {
@@ -88,14 +149,14 @@ export async function createBookingEvent(data: {
   email: string
   phone: string
   notes?: string
-}) {
+}): Promise<{ created: boolean; eventId?: string; reason?: string }> {
   const clientId = process.env.GOOGLE_CLIENT_ID
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
 
   if (!clientId || !clientSecret || !refreshToken) {
-    console.warn('Google Calendar credentials not configured â skipping event creation.')
-    return { created: false, reason: 'missing-credentials' as const }
+    console.warn('Google Calendar credentials not configured - skipping event creation.')
+    return { created: false, reason: 'missing-credentials' }
   }
 
   try {
@@ -105,25 +166,16 @@ export async function createBookingEvent(data: {
     const duration = DURATION_MINUTES[data.service] ?? 60
     const label = SERVICE_LABELS[data.service] ?? data.service
 
-    // Parse "10:00 AM" / "2:00 PM" â 24-hour integers
-    const timeParts = data.time.match(/(\d+):(\d+)\s*(AM|PM)/i)
-    let hh = timeParts ? parseInt(timeParts[1], 10) : 10
-    const mm = timeParts ? parseInt(timeParts[2], 10) : 0
-    const period = timeParts ? timeParts[3].toUpperCase() : 'AM'
-    if (period === 'PM' && hh !== 12) hh += 12
-    if (period === 'AM' && hh === 12) hh = 0
-
-    // Compute end time in whole minutes, then back to H:M
+    const { hh, mm } = parse12h(data.time)
     const startMinutes = hh * 60 + mm
     const endMinutes = startMinutes + duration
     const endHH = Math.floor(endMinutes / 60)
     const endMM = endMinutes % 60
 
-    // Build LOCAL time strings (no 'Z') â Google Calendar uses timeZone param
     const startLocal = buildLocalDateTime(data.date, hh, mm)
     const endLocal = buildLocalDateTime(data.date, endHH, endMM)
 
-    console.log(`[google-calendar] Creating event: ${label} on ${data.date} at ${data.time} â startLocal=${startLocal}`)
+    console.log(`[google-calendar] Creating event: ${label} on ${data.date} at ${data.time} (startLocal=${startLocal})`)
 
     const description = [
       `Service: ${label} (${duration} min)`,
@@ -131,15 +183,15 @@ export async function createBookingEvent(data: {
       `Email: ${data.email}`,
       `Phone: ${data.phone}`,
       data.notes ? `Notes: ${data.notes}` : null,
-    ]
-      .filter(Boolean)
-      .join('\n')
+      '',
+      'Booked online via mayllerbridal.com',
+    ].filter(Boolean).join('\n')
 
-    await calendar.events.insert({
+    const insertRes = await calendar.events.insert({
       calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
       sendUpdates: 'all',
       requestBody: {
-        summary: `Mayller Bridal â ${label} â ${data.name}`,
+        summary: `Mayller Bridal - ${label} - ${data.name}`,
         description,
         location: process.env.BUSINESS_ADDRESS || 'Mayller Bridal Italian Style, Sinking Spring, PA',
         start: { dateTime: startLocal, timeZone: TIMEZONE },
@@ -148,16 +200,16 @@ export async function createBookingEvent(data: {
         reminders: {
           useDefault: false,
           overrides: [
-            { method: 'email', minutes: 24 * 60 }, // 1 day before
-            { method: 'popup', minutes: 60 },       // 1 hour before
+            { method: 'email', minutes: 24 * 60 },
+            { method: 'popup', minutes: 60 },
           ],
         },
       },
     })
 
-    return { created: true as const }
+    return { created: true, eventId: insertRes.data.id || undefined }
   } catch (err) {
     console.error('Google Calendar error:', err)
-    return { created: false, reason: 'api-error' as const, error: String(err) }
+    return { created: false, reason: 'api-error' }
   }
 }
