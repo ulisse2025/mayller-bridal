@@ -274,6 +274,33 @@ export async function sendConfirmationSMS(booking: BookingResult): Promise<void>
 }
 
 /**
+ * Send cancellation notification email to the store.
+ */
+export async function sendCancellationEmail(
+  customerName: string,
+  bookingId: string,
+): Promise<void> {
+  const transporter = getMailTransporter();
+  const shortId = bookingId.slice(0, 8).toUpperCase();
+  const ts = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+
+  await transporter.sendMail({
+    from: `"Sofia AI Booking" <${process.env.GMAIL_USER}>`,
+    to: process.env.GMAIL_USER!,
+    subject: `❌ Booking Cancelled [${shortId}] — ${customerName}`,
+    html: `
+      <h2 style="color:#c00;">❌ Appointment Cancelled</h2>
+      <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;font-size:14px;">
+        <tr><td><b>Customer</b></td><td>${customerName}</td></tr>
+        <tr><td><b>Booking ID</b></td><td><b style="color:#c9a96e;">${shortId}</b></td></tr>
+        <tr><td><b>Full ID</b></td><td style="font-size:11px;color:#999;">${bookingId}</td></tr>
+      </table>
+      <p style="color:#888;font-size:12px;margin-top:20px;">
+        Cancelled via Sofia AI on ${ts} ET
+      </p>`,
+  });
+}
+/**
  * Send cancellation SMS to customer.
  */
 export async function sendCancellationSMS(
