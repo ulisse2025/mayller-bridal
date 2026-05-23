@@ -279,12 +279,14 @@ export async function syncCalendarToPostgres(): Promise<SyncResult> {
   // Cancellation sync: rows with external_event_id NOT in seenIds (and future) -> delete
   if (seenIds.size > 0) {
     try {
-      // Build VALUES list of seen ids; using ANY of array
-      const idsArr = Array.from(seenIds)
+      // @vercel/postgres tagged template does not accept arrays as parameters.
+      // We pass the ids as a comma-separated string and split it server-side
+      // using string_to_array.
+      const idsCsv = Array.from(seenIds).join(',')
       const cancelled = await sql`
         DELETE FROM bookings
         WHERE external_event_id IS NOT NULL
-          AND external_event_id <> ALL(${idsArr}::text[])
+          AND external_event_id <> ALL(string_to_array(${idsCsv}, ','))
           AND (slot_date || ' ' || slot_time)::timestamp > NOW() - INTERVAL '1 hour'
         RETURNING id
       `
