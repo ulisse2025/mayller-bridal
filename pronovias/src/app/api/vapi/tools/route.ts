@@ -223,20 +223,17 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
 
     console.log('[create_booking] Success, bookingId:', booking.bookingId);
 
-    // ââ Await notifications with 9s timeout âââââââââââââââââââ
+    // -- Send notifications (no artificial timeout) --
     try {
-      await Promise.race([
-        Promise.all([
-          sendConfirmationSMS(booking),
-          sendConfirmationEmail(booking),
-        ]),
-        new Promise<void>(resolve => setTimeout(resolve, 9_000)),
+      await Promise.all([
+        sendConfirmationSMS(booking),
+        sendConfirmationEmail(booking),
       ]);
     } catch (notifErr) {
       console.error('[notifications] Error:', String(notifErr));
     }
 
-    const shortId = booking.bookingId.slice(0, 8).toUpperCase();
+        const shortId = booking.bookingId.slice(0, 8).toUpperCase();
 
     return [
       `Your appointment is confirmed, ${booking.customerName}!`,
