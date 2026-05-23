@@ -142,6 +142,29 @@ export async function getAvailableSlots(
     currentMin += BUSINESS_HOURS.slotIncrement;
   }
 
+  // Filter out past time slots when checking today's availability
+  const todayStr = todayInNY();
+  if (date === todayStr) {
+    const nowParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const etHour = parseInt(nowParts.find((p: Intl.DateTimeFormatPart) => p.type === 'hour')?.value ?? '0', 10);
+    const etMin = parseInt(nowParts.find((p: Intl.DateTimeFormatPart) => p.type === 'minute')?.value ?? '0', 10);
+    const nowMinutes = etHour * 60 + etMin + 60; // 60-min advance booking buffer
+    return available.filter(slot => {
+      const match = slot.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (!match) return false;
+      let h = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10);
+      const ampm = match[3].toUpperCase();
+      if (ampm === 'PM' && h !== 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+      return h * 60 + m >= nowMinutes;
+    });
+  }
   return available;
 }
 
