@@ -21,7 +21,7 @@
  */
 
 import { google } from 'googleapis'
-
+import { randomUUID } from 'crypto'
 const TIMEZONE = 'America/New_York'
 
 const DURATION_MINUTES: Record<string, number> = {
@@ -165,7 +165,7 @@ export async function createBookingEvent(data: {
      * and any human operator can look it up and manage the booking.
      */
                                            bookingId?: number
-}): Promise<{ created: boolean; eventId?: string; reason?: string }> {
+}): Promise<{ created: boolean; eventId?: string; reason?: string ; shortBookingId?: string }> {
     const clientId = process.env.GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
     const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
@@ -193,7 +193,9 @@ export async function createBookingEvent(data: {
 
       console.log(`[google-calendar] Creating event: ${label} on ${data.date} at ${data.time} (startLocal=${startLocal})`)
 
-      const idTag = data.bookingId ? `[BookingID:${data.bookingId}]` : ''
+      const bookingUuid = randomUUID()
+          const shortBookingId = bookingUuid.slice(0, 8).toUpperCase()
+              const idTag = data.bookingId ? `[BookingID:${data.bookingId}]` : ''
 
       const description = [
               `Service: ${label} (${duration} min)`,
@@ -221,6 +223,18 @@ export async function createBookingEvent(data: {
                         start: { dateTime: startLocal, timeZone: TIMEZONE },
                         end: { dateTime: endLocal, timeZone: TIMEZONE },
                         attendees: [{ email: data.email, displayName: data.name }],
+                  extendedProperties: {
+                      private: {
+                          bookingId: bookingUuid,
+                          shortBookingId,
+                          customerName: data.name,
+                          customerPhone: data.phone,
+                          customerEmail: data.email,
+                          appointmentType: data.service,
+                          notes: data.notes ?? '',
+                          source: 'web',
+                      },
+                  },
                         reminders: {
                                     useDefault: false,
                                     overrides: [
@@ -231,7 +245,7 @@ export async function createBookingEvent(data: {
               },
       })
 
-      return { created: true, eventId: insertRes.data.id || undefined }
+      return { created: true, eventId: insertRes.data.id || undefined, shortBookingId }
   } catch (err) {
         console.error('Google Calendar error:', err)
         return { created: false, reason: 'api-error' }
