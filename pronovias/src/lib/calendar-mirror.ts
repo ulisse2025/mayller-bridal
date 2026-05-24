@@ -53,9 +53,11 @@ function inferService(summary: string | null | undefined): 'wedding' | 'alterati
 
 /** Heuristic: infer source from event creator / organizer / description */
 function inferSource(ev: calendar_v3.Schema$Event): 'web' | 'voice' | 'manual' {
-  const desc = (ev.description || '').toLowerCase()
-  if (desc.includes('booked online') || desc.includes('mayllerbridal.com')) return 'web'
-  if (desc.includes('vapi') || desc.includes('sofia') || desc.includes('voice')) return 'voice'
+  const haystack = `${ev.summary || ''}\n${ev.description || ''}`.toLowerCase()
+  // [BookingID:n] tag is only injected by the web flow, strongest signal
+  if (/\[bookingid:\d+\]/.test(haystack)) return 'web'
+  if (haystack.includes('booked online') || haystack.includes('mayllerbridal.com')) return 'web'
+  if (haystack.includes('vapi') || haystack.includes('sofia') || haystack.includes('voice')) return 'voice'
   // Default: assume Sofia (since the site already writes 'web' itself with external_event_id)
   return 'voice'
 }
