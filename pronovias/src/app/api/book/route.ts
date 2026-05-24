@@ -206,6 +206,7 @@ export async function POST(req: NextRequest) {
     // 4. Google Calendar (best effort)
     const calResult = await createBookingEvent({
       service, date, time, name, email, phone, notes,
+            bookingId,
     })
 
     // 5. Update Postgres with external_event_id so the cron mirror won't try
