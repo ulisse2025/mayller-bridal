@@ -210,8 +210,10 @@ export async function POST(req: NextRequest) {
       service, date, time, name, email, phone, notes,
             bookingId,
 
-      if (calResult.shortBookingId) emailData.shortBookingId = calResult.shortBookingId
+      
     })
+
+    if (calResult.shortBookingId) emailData.shortBookingId = calResult.shortBookingId
 
     // 5. Update Postgres with external_event_id so the cron mirror won't try
     //    to re-insert this event or send a duplicate email.
