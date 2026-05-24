@@ -44,6 +44,7 @@ interface EmailData {
   email: string
   phone: string
   notes?: string
+  shortBookingId?: string
 }
 
 function buildShopNotificationHtml(d: EmailData) {
@@ -138,6 +139,7 @@ function buildCustomerConfirmationHtml(d: EmailData) {
       <div class="row"><div class="lbl">Service</div><div class="val"><strong>${d.service}</strong></div></div>
       <div class="row"><div class="lbl">Date</div><div class="val">${formattedDate}</div></div>
       <div class="row"><div class="lbl">Time</div><div class="val">${d.time} (ET)</div></div>
+      ${d.shortBookingId ? `<div class="row"><div class="lbl">Code</div><div class="val" style="font-family:monospace;font-weight:700;letter-spacing:0.2em;color:#b45309">${d.shortBookingId}</div></div>` : ''}
     </div>
     <p class="note"><strong>A few things to know before you arrive:</strong></p>
     <p class="note">- Please arrive 5 minutes early so we can welcome you properly.<br/>
@@ -207,6 +209,8 @@ export async function POST(req: NextRequest) {
     const calResult = await createBookingEvent({
       service, date, time, name, email, phone, notes,
             bookingId,
+
+      if (calResult.shortBookingId) emailData.shortBookingId = calResult.shortBookingId
     })
 
     // 5. Update Postgres with external_event_id so the cron mirror won't try
