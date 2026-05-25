@@ -431,29 +431,53 @@ function toSearchResult(ev: CalendarEvent): BookingSearchResult | null {
   const startISO = ev.start?.dateTime ?? ev.start?.date ?? null;
   if (!startISO) return null;
 
-  // shortBookingId fallback: derive from bookingId if missing
+  // shortBookingId resolution, in order of preference:
+  //   1. props.shortBookingId  (set by Sofia or by /api/book)
+  //   2. props.bookingId.slice(0,8) (older bookings without explicit shortBookingId)
+  //   3. regex in description ("Short Code: XXXXXXXX" or "Booking ID: ...")
+  //   4. derived from the Google Calendar event.id itself (manual events)
   let shortId = props.shortBookingId;
   if (!shortId && props.bookingId) {
     shortId = props.bookingId.slice(0, 8).toUpperCase();
   }
   if (!shortId) {
-    // Last resort: scrape from description "Short Code: XXXXXXXX" or "Booking ID: ..."
     const desc = ev.description || '';
     const m = desc.match(/Short Code:\s*([A-Z0-9]{8})/i) ||
               desc.match(/Booking ID:\s*([a-f0-9-]+)/i);
     if (m) shortId = m[1].slice(0, 8).toUpperCase();
   }
-  if (!shortId) return null;
+  if (!shortId) {
+    // Manual event created directly on Google Calendar - derive an ID
+    // from the event.id so the row is still surfaced to Sofia.
+    // cancelBookingById / rescheduleBookingById know how to resolve this
+    // back to the original event via the same derivation.
+    shortId = ev.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase();
+  }
 
   const startDate = new Date(startISO);
   const appointmentType = props.appointmentType || 'wedding_consultation';
   const config = APPOINTMENT_CONFIG[appointmentType as AppointmentType] ?? APPOINTMENT_CONFIG.wedding_consultation;
 
+  // Phone fallback: scrape from description ("Phone: ...") for manual events.
+  let phoneFallback = props.customerPhone || '';
+  if (!phoneFallback) {
+    const desc = ev.description || '';
+    const phoneMatch = desc.match(/(?:Phone|Tel|Telephone|Cell|Mobile)[:\s]+([+\d\s\-().]+)/i);
+    if (phoneMatch) phoneFallback = phoneMatch[1].trim();
+  }
+
+  // Name fallback: try summary tail, then attendee, then "Unknown"
+  let nameFallback = props.customerName;
+  if (!nameFallback) {
+    nameFallback = (ev.summary?.split('—').pop() || '').trim();
+  }
+  if (!nameFallback) nameFallback = 'Unknown';
+
   return {
     shortBookingId: shortId,
     googleEventId: ev.id,
-    customerName: props.customerName || (ev.summary?.split('—').pop() || '').trim() || 'Unknown',
-    customerPhone: props.customerPhone || '',
+    customerName: nameFallback,
+    customerPhone: phoneFallback,
     customerEmail: props.customerEmail || '',
     appointmentType,
     appointmentLabel: config.label,
@@ -473,9 +497,9 @@ export async function cancelBookingById(bookingId: string): Promise<{
   customerPhone?: string;
 }> {
   const calendar = getCalendarClient();
-
-  // FIX: search by shortBookingId (8-char ID told to customer)
   const shortId = bookingId.slice(0, 8).toUpperCase();
+
+  // Path 1: lookup by shortBookingId in extendedProperties (Sofia/web bookings)
   const events = await calendar.events.list({
     calendarId: calendarId(),
     privateExtendedProperty: [`shortBookingId=${shortId}`],
@@ -483,7 +507,30 @@ export async function cancelBookingById(bookingId: string): Promise<{
     showDeleted: false,
   });
 
-  const event = events.data.items?.[0];
+  let event = events.data.items?.[0];
+
+  // Path 2 fallback: shortId may have been derived from event.id by toSearchResult
+  // (for manual events with no extendedProperties). Scan upcoming events and
+  // match by derived shortId.
+  if (!event?.id) {
+    const now = new Date();
+    const horizon = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    const listRes = await calendar.events.list({
+      calendarId: calendarId(),
+      timeMin: now.toISOString(),
+      timeMax: horizon.toISOString(),
+      maxResults: 250,
+      showDeleted: false,
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+    event = (listRes.data.items ?? []).find(ev => {
+      if (!ev.id) return false;
+      const derived = ev.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase();
+      return derived === shortId;
+    });
+  }
+
   if (!event?.id) return { success: false };
 
   const props = event.extendedProperties?.private ?? {};
@@ -531,7 +578,7 @@ export async function rescheduleBookingById(
   const calendar = getCalendarClient();
   const shortId = shortBookingIdRaw.slice(0, 8).toUpperCase();
 
-  // 1. Find the event
+  // 1. Find the event (path 1: extendedProperties lookup)
   const list = await calendar.events.list({
     calendarId: calendarId(),
     privateExtendedProperty: [`shortBookingId=${shortId}`],
@@ -539,7 +586,28 @@ export async function rescheduleBookingById(
     showDeleted: false,
     singleEvents: true,
   });
-  const event = list.data.items?.[0];
+  let event = list.data.items?.[0];
+
+  // Path 2 fallback: derived shortId from event.id (manual calendar events)
+  if (!event?.id) {
+    const now = new Date();
+    const horizon = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    const scan = await calendar.events.list({
+      calendarId: calendarId(),
+      timeMin: now.toISOString(),
+      timeMax: horizon.toISOString(),
+      maxResults: 250,
+      showDeleted: false,
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+    event = (scan.data.items ?? []).find(ev => {
+      if (!ev.id) return false;
+      const derived = ev.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase();
+      return derived === shortId;
+    });
+  }
+
   if (!event?.id) return { success: false, reason: 'not-found' };
 
   const props = event.extendedProperties?.private ?? {};
