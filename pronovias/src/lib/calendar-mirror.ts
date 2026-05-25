@@ -231,6 +231,20 @@ export async function syncCalendarToPostgres(): Promise<SyncResult> {
       const source = inferSource(ev)
       const { name, email, phone } = extractCustomer(ev)
 
+      // Orphan cleanup: if this event was moved to a different slot, remove
+      // any stale rows still keyed to the OLD slot_date/slot_time but pointing
+      // to this event id. Without this the website would keep the old slot
+      // marked as booked after every reschedule.
+      try {
+        await sql`
+          DELETE FROM bookings
+          WHERE external_event_id = ${ev.id}
+            AND (slot_date <> ${date} OR slot_time <> ${time})
+        `
+      } catch (err) {
+        console.error('[calendar-mirror] orphan cleanup failed for', ev.id, err)
+      }
+
       // Upsert by external_event_id (preferred) — fallback by slot_date+time
       const upsert = await sql`
         INSERT INTO bookings
