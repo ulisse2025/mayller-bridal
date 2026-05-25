@@ -36,3 +36,18 @@ CREATE INDEX IF NOT EXISTS bookings_email_sent_idx ON bookings (customer_email_s
 
 -- Optional cleanup: rows older than 2 years
 -- DELETE FROM bookings WHERE created_at < NOW() - INTERVAL '2 years';
+
+
+-- v3 migration (May 2026) - real-time Google Calendar push notifications
+-- Tracks active webhook channels so we can renew them daily and stop the
+-- old one before registering a new one.
+CREATE TABLE IF NOT EXISTS calendar_watches (
+  id            SERIAL PRIMARY KEY,
+  channel_id    TEXT NOT NULL UNIQUE,
+  resource_id   TEXT NOT NULL,
+  expiration    TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS calendar_watches_created_at_idx
+  ON calendar_watches (created_at DESC);
