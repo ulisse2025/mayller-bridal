@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getBookedSlots } from '@/lib/bookings'
  
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
  
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get('date')

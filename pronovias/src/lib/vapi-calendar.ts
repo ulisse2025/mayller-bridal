@@ -5,6 +5,7 @@
 // ============================================================
 
 import { google } from 'googleapis';
+import { deleteBookingByExternalEventId, moveBookingByExternalEventId } from '@/lib/bookings';
 import { randomUUID } from 'crypto';
 import {
   AppointmentType,
@@ -492,6 +493,14 @@ export async function cancelBookingById(bookingId: string): Promise<{
     eventId: event.id,
   });
 
+  // Mirror the cancellation in Postgres so the website slot is freed immediately.
+  // Without this the slot stays "booked" until the next 5-min cron sweep.
+  try {
+    await deleteBookingByExternalEventId(event.id);
+  } catch (err) {
+    console.error('[cancelBookingById] DB delete failed (will be reconciled by cron):', err);
+  }
+
   return {
     success: true,
     customerName: props.customerName,
@@ -591,6 +600,16 @@ export async function rescheduleBookingById(
         end:   { dateTime: newEnd.toISOString(),   timeZone: BUSINESS_HOURS.timezone },
       },
     });
+
+    // Mirror the move in Postgres so the website availability calendar reflects
+    // the change immediately (no 5 min cron wait, and no orphan row left at the
+    // old time which would otherwise keep that slot marked as booked).
+    try {
+      const newSlotTime = formatTime(parsed.hours, parsed.minutes);
+      await moveBookingByExternalEventId(event.id, newDate, newSlotTime);
+    } catch (err) {
+      console.error('[rescheduleBookingById] DB move failed (will be reconciled by cron):', err);
+    }
 
     return {
       success: true,

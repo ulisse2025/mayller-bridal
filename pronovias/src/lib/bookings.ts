@@ -101,3 +101,46 @@ export async function updateBookingExternalRef(
 export async function releaseSlot(bookingId: number): Promise<void> {
   await sql`DELETE FROM bookings WHERE id = ${bookingId}`
 }
+
+
+/**
+ * Delete the booking row matching a Google Calendar event id.
+ * Used by Sofia/Vapi cancelBookingById and by the mirror cancellation sweep.
+ * Returns the number of rows deleted (0 if no match).
+ */
+export async function deleteBookingByExternalEventId(externalEventId: string): Promise<number> {
+  const result = await sql`
+    DELETE FROM bookings
+    WHERE external_event_id = ${externalEventId}
+  `
+  return result.rowCount ?? 0
+}
+
+/**
+ * Move a booking to a new date/time, keyed by external_event_id.
+ * Used after rescheduleBookingById on Google Calendar so the website
+ * availability calendar reflects the change immediately (no 5 min cron wait).
+ *
+ * If a row already occupies the destination slot it returns false (caller
+ * should let the cron mirror retry). On success returns true.
+ */
+export async function moveBookingByExternalEventId(
+  externalEventId: string,
+  newDate: string,
+  newTime: string,
+): Promise<boolean> {
+  try {
+    const result = await sql`
+      UPDATE bookings
+         SET slot_date  = ${newDate},
+             slot_time  = ${newTime},
+             updated_at = NOW()
+       WHERE external_event_id = ${externalEventId}
+    `
+    return (result.rowCount ?? 0) > 0
+  } catch (err) {
+    // Likely UNIQUE(slot_date, slot_time) conflict — leave to cron mirror.
+    console.error('moveBookingByExternalEventId failed:', err)
+    return false
+  }
+}
