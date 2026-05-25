@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Geist } from "next/font/google"
 import "./globals.css"
+import WhatsAppButton from "@/components/WhatsAppButton"
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -68,7 +69,10 @@ export default function RootLayout({
         <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        <WhatsAppButton />
+      </body>
     </html>
   )
 }
