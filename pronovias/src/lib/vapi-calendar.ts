@@ -27,7 +27,7 @@ import {
  * not Eastern — this function compensates for that.
  *
  * Example: easternDate('2026-05-20', 10, 0)
- *   → Date object equal to 2026-05-20T14:00:00Z  (10 AM EDT = UTC-4)
+ *   → Date object equal to 2026-05-20T14:00:00Z (10 AM EDT = UTC-4)
  */
 function easternDate(dateStr: string, hour: number, minute: number = 0): Date {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -75,6 +75,34 @@ function getCalendarClient() {
 }
 
 const calendarId = () => process.env.GOOGLE_CALENDAR_ID!;
+
+// ── Phone Normalization ───────────────────────────────────────
+
+/**
+ * Normalize a US phone number to E.164 (+1XXXXXXXXXX).
+ * Handles formats like "(215) 555-1234", "215-555-1234", "+1 215 555 1234".
+ * Returns null if it cannot be parsed.
+ */
+function normalizePhoneUS(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  if (digits.length >= 11) return `+${digits}`;
+  return null;
+}
+
+/**
+ * Loose comparison: do these two phone strings represent the same number
+ * after stripping all formatting?
+ */
+function phonesMatch(a?: string | null, b?: string | null): boolean {
+  const na = normalizePhoneUS(a);
+  const nb = normalizePhoneUS(b);
+  if (!na || !nb) return false;
+  // Compare last 10 digits — robust against country code variations
+  return na.slice(-10) === nb.slice(-10);
+}
 
 // ── Check Availability ────────────────────────────────────────
 
@@ -168,7 +196,7 @@ export async function getAvailableSlots(
   return available;
 }
 
-// ── Create Booking ────────────────────────────────────────────
+// ── Create Booking ───────────────────────────────────────────
 
 export async function createBooking(req: BookingRequest): Promise<BookingResult> {
   const calendar = getCalendarClient();
@@ -183,10 +211,13 @@ export async function createBooking(req: BookingRequest): Promise<BookingResult>
   const startDate = easternDate(req.date, hours, minutes);
   const endDate = new Date(startDate.getTime() + config.duration * 60_000);
 
+  // Normalize phone before storing
+  const normalizedPhone = normalizePhoneUS(req.customerPhone) ?? req.customerPhone;
+
   const descriptionLines = [
     `📋 ${config.label}`,
     `👤 ${req.customerName}`,
-    `📱 ${req.customerPhone}`,
+    `📱 ${normalizedPhone}`,
     req.customerEmail ? `📧 ${req.customerEmail}` : null,
     req.notes ? `📝 ${req.notes}` : null,
     ``,
@@ -195,6 +226,7 @@ export async function createBooking(req: BookingRequest): Promise<BookingResult>
     `📍 ${STORE_ADDRESS}`,
     ``,
     `🔑 Booking ID: ${bookingId}`,
+    `🆔 Short Code: ${shortBookingId}`,
   ].filter((l): l is string => l !== null);
 
   await calendar.events.insert({
@@ -216,7 +248,7 @@ export async function createBooking(req: BookingRequest): Promise<BookingResult>
           bookingId,
           shortBookingId,
           customerName: req.customerName,
-          customerPhone: req.customerPhone,
+          customerPhone: normalizedPhone,
           customerEmail: req.customerEmail ?? '',
           appointmentType: req.appointmentType,
           notes: req.notes ?? '',
@@ -229,13 +261,206 @@ export async function createBooking(req: BookingRequest): Promise<BookingResult>
   return {
     bookingId,
     customerName: req.customerName,
-    customerPhone: req.customerPhone,
+    customerPhone: normalizedPhone,
     customerEmail: req.customerEmail,
     date: req.date,
     time: formatTime(hours, minutes),
     appointmentType: req.appointmentType,
     label: config.label,
     duration: config.duration,
+  };
+}
+
+// ── Search Bookings ───────────────────────────────────────────
+
+/**
+ * Result of a booking search. Includes everything needed to identify
+ * the booking to the customer and to act on it (cancel/reschedule).
+ */
+export interface BookingSearchResult {
+  shortBookingId: string;
+  googleEventId: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  appointmentType: string;
+  appointmentLabel: string;
+  startDateTime: string;   // ISO
+  startDateLocal: string;  // YYYY-MM-DD in ET
+  startTimeLocal: string;  // "2:30 PM" in ET
+  source: string;          // 'sofia-ai' | 'web' | etc.
+  notes: string;
+}
+
+export interface BookingSearchQuery {
+  phone?: string;
+  email?: string;
+  name?: string;
+  shortBookingId?: string;
+  /** YYYY-MM-DD (inclusive). Defaults to today. */
+  dateFrom?: string;
+  /** YYYY-MM-DD (inclusive). Defaults to today + 180 days. */
+  dateTo?: string;
+  /** Only return future appointments (default true). */
+  futureOnly?: boolean;
+}
+
+function formatLocalDate(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+  }).format(d);
+}
+
+function formatLocalTime(d: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(d);
+}
+
+/**
+ * Search for bookings in Google Calendar.
+ *
+ * Strategy:
+ *  - If shortBookingId is provided, use extendedProperty lookup (fastest, exact).
+ *  - Otherwise list events in the date window and filter in-memory by
+ *    phone (primary), then email, then name (fuzzy contains).
+ *
+ * Handles BOTH web-originated and Sofia-originated events because both
+ * paths now write customerPhone, customerEmail, customerName into
+ * extendedProperties.private.
+ */
+export async function searchBookings(query: BookingSearchQuery): Promise<BookingSearchResult[]> {
+  const calendar = getCalendarClient();
+
+  // Fast path: exact shortBookingId lookup
+  if (query.shortBookingId) {
+    const code = query.shortBookingId.trim().toUpperCase();
+    const res = await calendar.events.list({
+      calendarId: calendarId(),
+      privateExtendedProperty: [`shortBookingId=${code}`],
+      maxResults: 5,
+      showDeleted: false,
+      singleEvents: true,
+    });
+    return (res.data.items ?? []).map(toSearchResult).filter(Boolean) as BookingSearchResult[];
+  }
+
+  // Generic search: list events in window, then filter
+  const today = todayInNY();
+  const dateFrom = query.dateFrom ?? today;
+  const dateTo = query.dateTo ?? (() => {
+    const t = new Date();
+    t.setDate(t.getDate() + 180);
+    return formatLocalDate(t);
+  })();
+
+  const timeMin = easternDate(dateFrom, 0, 0).toISOString();
+  const timeMax = easternDate(dateTo, 23, 59).toISOString();
+
+  // If we have a phone, try the indexed extendedProperty lookup first
+  // (much cheaper than listing 100+ events).
+  const normalizedPhone = normalizePhoneUS(query.phone);
+  if (normalizedPhone) {
+    try {
+      const res = await calendar.events.list({
+        calendarId: calendarId(),
+        privateExtendedProperty: [`customerPhone=${normalizedPhone}`],
+        timeMin,
+        timeMax,
+        maxResults: 25,
+        showDeleted: false,
+        singleEvents: true,
+        orderBy: 'startTime',
+      });
+      const hits = (res.data.items ?? []).map(toSearchResult).filter(Boolean) as BookingSearchResult[];
+      if (hits.length > 0) return hits;
+    } catch (e) {
+      console.warn('[searchBookings] indexed phone lookup failed, falling back:', String(e));
+    }
+  }
+
+  // Fallback: full list + in-memory filter
+  // (also covers events that were created before phone normalization)
+  const listRes = await calendar.events.list({
+    calendarId: calendarId(),
+    timeMin,
+    timeMax,
+    maxResults: 250,
+    showDeleted: false,
+    singleEvents: true,
+    orderBy: 'startTime',
+  });
+
+  const all = (listRes.data.items ?? []).map(toSearchResult).filter(Boolean) as BookingSearchResult[];
+
+  return all.filter(ev => {
+    if (query.phone && !phonesMatch(ev.customerPhone, query.phone)) return false;
+    if (query.email && (ev.customerEmail || '').toLowerCase() !== query.email.toLowerCase()) return false;
+    if (query.name) {
+      const needle = query.name.toLowerCase().trim();
+      const hay = (ev.customerName || '').toLowerCase();
+      if (!hay.includes(needle)) {
+        // also try matching any single word of the query against the name
+        const words = needle.split(/\s+/).filter(Boolean);
+        if (!words.some(w => hay.includes(w))) return false;
+      }
+    }
+    return true;
+  });
+}
+
+/**
+ * Convert a Google Calendar event into our BookingSearchResult shape.
+ * Returns null if the event is missing critical fields.
+ */
+type CalendarEvent = {
+  id?: string | null;
+  summary?: string | null;
+  description?: string | null;
+  start?: { dateTime?: string | null; date?: string | null } | null;
+  extendedProperties?: { private?: Record<string, string> } | null;
+};
+
+function toSearchResult(ev: CalendarEvent): BookingSearchResult | null {
+  if (!ev.id) return null;
+  const props = ev.extendedProperties?.private ?? {};
+  const startISO = ev.start?.dateTime ?? ev.start?.date ?? null;
+  if (!startISO) return null;
+
+  // shortBookingId fallback: derive from bookingId if missing
+  let shortId = props.shortBookingId;
+  if (!shortId && props.bookingId) {
+    shortId = props.bookingId.slice(0, 8).toUpperCase();
+  }
+  if (!shortId) {
+    // Last resort: scrape from description "Short Code: XXXXXXXX" or "Booking ID: ..."
+    const desc = ev.description || '';
+    const m = desc.match(/Short Code:\s*([A-Z0-9]{8})/i) ||
+              desc.match(/Booking ID:\s*([a-f0-9-]+)/i);
+    if (m) shortId = m[1].slice(0, 8).toUpperCase();
+  }
+  if (!shortId) return null;
+
+  const startDate = new Date(startISO);
+  const appointmentType = props.appointmentType || 'wedding_consultation';
+  const config = APPOINTMENT_CONFIG[appointmentType as AppointmentType] ?? APPOINTMENT_CONFIG.wedding_consultation;
+
+  return {
+    shortBookingId: shortId,
+    googleEventId: ev.id,
+    customerName: props.customerName || (ev.summary?.split('—').pop() || '').trim() || 'Unknown',
+    customerPhone: props.customerPhone || '',
+    customerEmail: props.customerEmail || '',
+    appointmentType,
+    appointmentLabel: config.label,
+    startDateTime: startDate.toISOString(),
+    startDateLocal: formatLocalDate(startDate),
+    startTimeLocal: formatLocalTime(startDate),
+    source: props.source || 'unknown',
+    notes: props.notes || '',
   };
 }
 
@@ -272,6 +497,113 @@ export async function cancelBookingById(bookingId: string): Promise<{
     customerName: props.customerName,
     customerPhone: props.customerPhone,
   };
+}
+
+// ── Reschedule Booking ────────────────────────────────────────
+
+/**
+ * Move an existing booking to a new date/time.
+ * Keeps the same Google Calendar event (and the same shortBookingId),
+ * just updates start/end. Validates that the new slot is free.
+ */
+export async function rescheduleBookingById(
+  shortBookingIdRaw: string,
+  newDate: string,
+  newTime: string,
+): Promise<{
+  success: boolean;
+  reason?: 'not-found' | 'slot-busy' | 'invalid-time' | 'error';
+  customerName?: string;
+  customerPhone?: string;
+  previousStart?: string;
+  newStart?: string;
+  appointmentType?: AppointmentType;
+}> {
+  const calendar = getCalendarClient();
+  const shortId = shortBookingIdRaw.slice(0, 8).toUpperCase();
+
+  // 1. Find the event
+  const list = await calendar.events.list({
+    calendarId: calendarId(),
+    privateExtendedProperty: [`shortBookingId=${shortId}`],
+    maxResults: 1,
+    showDeleted: false,
+    singleEvents: true,
+  });
+  const event = list.data.items?.[0];
+  if (!event?.id) return { success: false, reason: 'not-found' };
+
+  const props = event.extendedProperties?.private ?? {};
+  const apptType: AppointmentType =
+    (props.appointmentType as AppointmentType) || 'wedding_consultation';
+  const config = APPOINTMENT_CONFIG[apptType] ?? APPOINTMENT_CONFIG.wedding_consultation;
+
+  // 2. Parse new time
+  let parsed;
+  try {
+    parsed = parseTime(newTime);
+  } catch {
+    return { success: false, reason: 'invalid-time' };
+  }
+  if (parsed.hours < BUSINESS_HOURS.start || parsed.hours >= BUSINESS_HOURS.end) {
+    return { success: false, reason: 'invalid-time' };
+  }
+
+  const newStart = easternDate(newDate, parsed.hours, parsed.minutes);
+  const newEnd = new Date(newStart.getTime() + config.duration * 60_000);
+
+  // 3. Verify the new slot is free (excluding THIS event)
+  const freeBusy = await calendar.freebusy.query({
+    requestBody: {
+      timeMin: newStart.toISOString(),
+      timeMax: newEnd.toISOString(),
+      timeZone: BUSINESS_HOURS.timezone,
+      items: [{ id: calendarId() }],
+    },
+  });
+  const busy = freeBusy.data.calendars?.[calendarId()]?.busy ?? [];
+
+  // Filter out the current event itself (it will appear as busy on its old slot,
+  // but we only care about other events at the NEW slot)
+  const conflicts = busy.filter(b => {
+    const bs = new Date(b.start!);
+    const be = new Date(b.end!);
+    // Overlap check at the NEW slot
+    return bs < newEnd && be > newStart;
+  });
+
+  // If there's exactly one conflict and it matches this event's old time, ignore.
+  // Easier: compare each conflict's start/end with the current event's start/end.
+  const currentStartISO = event.start?.dateTime;
+  const currentEndISO = event.end?.dateTime;
+  const realConflicts = conflicts.filter(b => !(b.start === currentStartISO && b.end === currentEndISO));
+  if (realConflicts.length > 0) {
+    return { success: false, reason: 'slot-busy' };
+  }
+
+  // 4. Patch the event
+  try {
+    const updated = await calendar.events.patch({
+      calendarId: calendarId(),
+      eventId: event.id,
+      requestBody: {
+        start: { dateTime: newStart.toISOString(), timeZone: BUSINESS_HOURS.timezone },
+        end:   { dateTime: newEnd.toISOString(),   timeZone: BUSINESS_HOURS.timezone },
+      },
+    });
+
+    return {
+      success: true,
+      customerName: props.customerName,
+      customerPhone: props.customerPhone,
+      previousStart: currentStartISO || undefined,
+      newStart: updated.data.start?.dateTime || newStart.toISOString(),
+      appointmentType: apptType,
+    };
+  } catch (err) {
+    console.error('[rescheduleBookingById] patch failed:', String(err));
+    return { success: false, reason: 'error' };
+  }
 }
 
 // ── Get Booking Info ──────────────────────────────────────────

@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAvailableSlots, createBooking, cancelBookingById } from '@/lib/vapi-calendar';
-import { sendConfirmationEmail, sendConfirmationSMS, sendCancellationSMS, sendCancellationEmail } from '@/lib/notifications';
+import {
+  getAvailableSlots,
+  createBooking,
+  cancelBookingById,
+  searchBookings,
+  rescheduleBookingById,
+} from '@/lib/vapi-calendar';
+import {
+  sendConfirmationEmail,
+  sendConfirmationSMS,
+  sendCancellationSMS,
+  sendCancellationEmail,
+} from '@/lib/notifications';
 import {
   AppointmentType,
   APPOINTMENT_CONFIG,
@@ -11,7 +22,7 @@ import {
   STORE_ADDRESS,
 } from '@/lib/booking-types';
 
-// ââ CORS Headers ââââââââââââââââââââââââââââââââââââââââââââââ
+// ── CORS Headers ──────────────────────────────────────────────
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -22,7 +33,7 @@ export async function OPTIONS() {
   return new NextResponse(null, { headers: CORS });
 }
 
-// ââ Date/Time Helpers âââââââââââââââââââââââââââââââââââââââââ
+// ── Date/Time Helpers ─────────────────────────────────────────
 
 /**
  * Returns today's date in YYYY-MM-DD format (Eastern Time).
@@ -57,7 +68,7 @@ function nowET(): string {
 
 /**
  * Auto-corrects the year if the AI sent a past year.
- * Example: "2025-05-20" â "2026-05-20" when current year is 2026.
+ * Example: "2025-05-20" → "2026-05-20" when current year is 2026.
  */
 function correctYear(date: string): string {
   const currentYear = new Date().getFullYear();
@@ -65,13 +76,33 @@ function correctYear(date: string): string {
   const year = parseInt(yearStr, 10);
   if (year < currentYear) {
     const corrected = `${currentYear}-${rest.join('-')}`;
-    console.log(`[date-correction] Auto-corrected year: ${date} â ${corrected}`);
+    console.log(`[date-correction] Auto-corrected year: ${date} → ${corrected}`);
     return corrected;
   }
   return date;
 }
 
-// ââ Tool Handlers âââââââââââââââââââââââââââââââââââââââââââââ
+/**
+ * Extract the inbound caller phone from the Vapi message envelope.
+ * Vapi puts it under message.call.customer.number for inbound calls.
+ */
+function extractCallerPhone(body: unknown): string | null {
+  const b = body as {
+    message?: {
+      call?: {
+        customer?: { number?: string };
+        phoneNumber?: { number?: string };
+      };
+    };
+  } | null;
+  return (
+    b?.message?.call?.customer?.number ||
+    b?.message?.call?.phoneNumber?.number ||
+    null
+  );
+}
+
+// ── Tool Handlers ─────────────────────────────────────────────
 
 /**
  * Returns the current date and time in Eastern Time.
@@ -80,11 +111,11 @@ function correctYear(date: string): string {
 function handleGetCurrentDatetime(): string {
   const isoDate = todayET();
   const humanDate = nowET();
-  console.log('[get_current_datetime] Called â returning:', humanDate);
+  console.log('[get_current_datetime] Called → returning:', humanDate);
   return (
     `Current date and time in Eastern Time: ${humanDate}. ` +
     `ISO date for booking requests: ${isoDate}. ` +
-    `Business hours: MondayâSaturday, 10:00 AM to 6:00 PM Eastern.`
+    `Business hours: Monday–Saturday, 10:00 AM to 6:00 PM Eastern.`
   );
 }
 
@@ -109,7 +140,7 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
     return `Today is ${todayET()}. I need a date to check availability. What date were you thinking?`;
   }
 
-  // Normalize date â accept YYYY-MM-DD format
+  // Normalize date — accept YYYY-MM-DD format
   let normalizedDate = date.trim();
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
@@ -165,7 +196,7 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
   const { customer_name, customer_phone, customer_email, time, appointment_type, notes } = args;
   let { date } = args;
 
-  // ââ Validate required fields âââââââââââââââââââââââââââââââ
+  // ── Validate required fields ───────────────────────────────
   const missing: string[] = [];
   if (!customer_name) missing.push('your full name');
   if (!customer_phone) missing.push('your phone number');
@@ -185,7 +216,7 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
   const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
   const config = APPOINTMENT_CONFIG[type];
 
-  // ââ Validate time format and business hours âââââââââââââââ
+  // ── Validate time format and business hours ────────────────
   console.log('[create_booking] Raw time received from Vapi:', JSON.stringify(time));
   const timePattern = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
   const time24Pattern = /^(\d{1,2}):(\d{2})$/;
@@ -250,7 +281,7 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
       console.error('[notifications] Error:', String(notifErr));
     }
 
-        const shortId = booking.bookingId.slice(0, 8).toUpperCase();
+    const shortId = booking.bookingId.slice(0, 8).toUpperCase();
 
     return [
       `Your appointment is confirmed, ${booking.customerName}!`,
@@ -271,16 +302,100 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
   }
 }
 
-async function handleCancelBooking(args: Record<string, string>): Promise<string> {
-  const { booking_id } = args;
+/**
+ * Search for an existing booking. Sofia should call this BEFORE asking
+ * the customer for a booking code. The caller's phone number is the
+ * primary lookup key (Vapi passes it in message.call.customer.number).
+ */
+async function handleSearchBooking(
+  args: Record<string, string>,
+  callerPhone: string | null,
+): Promise<string> {
+  console.log('[search_booking] args:', JSON.stringify(args), 'callerPhone:', callerPhone);
+
+  const phone = args.customer_phone || callerPhone || undefined;
+  const name = args.customer_name || undefined;
+  const email = args.customer_email || undefined;
+  const bookingCode = args.booking_id || undefined;
+
+  if (!phone && !name && !email && !bookingCode) {
+    return `I need at least one of: phone number, full name, email address, or your 8-character booking code, to look up your appointment.`;
+  }
+
+  try {
+    const results = await searchBookings({
+      phone,
+      name,
+      email,
+      shortBookingId: bookingCode,
+      futureOnly: true,
+    });
+
+    if (results.length === 0) {
+      // Helpful: if we tried phone-only and found nothing, ask for name
+      if (phone && !name && !email) {
+        return `I don't see an upcoming appointment under the phone number on file. Could you tell me the full name on the booking, or your 8-character booking code from the confirmation email?`;
+      }
+      return `I could not find any upcoming appointment matching that. Could you double-check the details, or share your 8-character booking code from the confirmation email?`;
+    }
+
+    if (results.length === 1) {
+      const b = results[0];
+      return [
+        `I found your appointment.`,
+        `Name: ${b.customerName}.`,
+        `Service: ${b.appointmentLabel}.`,
+        `Date: ${formatDate(b.startDateLocal)}.`,
+        `Time: ${b.startTimeLocal}.`,
+        `Booking code: ${b.shortBookingId}.`,
+        `Would you like to confirm, reschedule, or cancel?`,
+      ].join(' ');
+    }
+
+    // Multiple matches: list them briefly
+    const lines = results.slice(0, 5).map((b, i) =>
+      `${i + 1}) ${b.appointmentLabel} on ${formatDate(b.startDateLocal)} at ${b.startTimeLocal} — code ${b.shortBookingId}`
+    );
+    return `I found ${results.length} upcoming appointments. ${lines.join('. ')}. Which one would you like to manage?`;
+  } catch (err) {
+    console.error('[search_booking] Exception:', String(err));
+    return `I'm having trouble looking up appointments right now. Please call us directly at ${STORE_PHONE}.`;
+  }
+}
+
+async function handleCancelBooking(
+  args: Record<string, string>,
+  callerPhone: string | null,
+): Promise<string> {
+  let { booking_id } = args;
+
+  // If no booking_id was provided, try to find a unique upcoming booking by
+  // caller phone — saves the customer from having to recite the code.
+  if (!booking_id && callerPhone) {
+    try {
+      const candidates = await searchBookings({ phone: callerPhone, futureOnly: true });
+      if (candidates.length === 1) {
+        booking_id = candidates[0].shortBookingId;
+        console.log('[cancel_booking] Auto-resolved booking from caller phone:', booking_id);
+      } else if (candidates.length > 1) {
+        const lines = candidates.slice(0, 5).map((b, i) =>
+          `${i + 1}) ${b.appointmentLabel} on ${formatDate(b.startDateLocal)} at ${b.startTimeLocal} — code ${b.shortBookingId}`
+        );
+        return `I see ${candidates.length} upcoming appointments under your phone number. Which one should I cancel? ${lines.join('. ')}.`;
+      }
+    } catch (e) {
+      console.warn('[cancel_booking] Auto-resolve failed:', String(e));
+    }
+  }
+
   if (!booking_id) {
-    return `To cancel your appointment I need your booking ID â the 8-character code from your confirmation text. What is it?`;
+    return `To cancel your appointment I need either your 8-character booking code from the confirmation email, or your full name so I can look it up.`;
   }
 
   try {
     const result = await cancelBookingById(booking_id);
     if (!result.success) {
-      return `I could not find a booking with that ID. Please double-check the code in your confirmation SMS. If you're still having trouble, call us at ${STORE_PHONE}.`;
+      return `I could not find a booking with that code. Please double-check the code in your confirmation email or SMS. If you're still having trouble, call us at ${STORE_PHONE}.`;
     }
 
     if (result.customerPhone) {
@@ -301,7 +416,77 @@ async function handleCancelBooking(args: Record<string, string>): Promise<string
   }
 }
 
-// ââ Route Handler âââââââââââââââââââââââââââââââââââââââââââââ
+async function handleRescheduleBooking(
+  args: Record<string, string>,
+  callerPhone: string | null,
+): Promise<string> {
+  let { booking_id } = args;
+  let { date: newDate } = args;
+  const { time: newTime } = args;
+
+  if (!newDate || !newTime) {
+    return `To reschedule I need the new date and time. What date and time work for you?`;
+  }
+
+  // Auto-correct year if AI sent a past year
+  newDate = correctYear(newDate);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+    return `I have a problem with the new date format. Could you repeat it? (Today is ${todayET()})`;
+  }
+
+  // Try to resolve booking from caller phone if no code provided
+  if (!booking_id && callerPhone) {
+    try {
+      const candidates = await searchBookings({ phone: callerPhone, futureOnly: true });
+      if (candidates.length === 1) {
+        booking_id = candidates[0].shortBookingId;
+        console.log('[reschedule_booking] Auto-resolved booking from caller phone:', booking_id);
+      } else if (candidates.length > 1) {
+        const lines = candidates.slice(0, 5).map((b, i) =>
+          `${i + 1}) ${b.appointmentLabel} on ${formatDate(b.startDateLocal)} at ${b.startTimeLocal} — code ${b.shortBookingId}`
+        );
+        return `I see ${candidates.length} upcoming appointments under your phone number. Which one do you want to reschedule? ${lines.join('. ')}.`;
+      }
+    } catch (e) {
+      console.warn('[reschedule_booking] Auto-resolve failed:', String(e));
+    }
+  }
+
+  if (!booking_id) {
+    return `To reschedule I need your 8-character booking code or your full name so I can look up the appointment.`;
+  }
+
+  try {
+    const result = await rescheduleBookingById(booking_id, newDate, newTime);
+
+    if (!result.success) {
+      switch (result.reason) {
+        case 'not-found':
+          return `I could not find a booking with that code. Could you double-check the code in your confirmation email?`;
+        case 'slot-busy':
+          return `Unfortunately, ${newTime} on ${formatDate(newDate)} is not available. Would you like me to check what other times are open that day?`;
+        case 'invalid-time':
+          return `That time is outside our business hours (10:00 AM to 6:00 PM Eastern, Monday through Saturday). What time within those hours works for you?`;
+        default:
+          return `I had trouble rescheduling that booking. Please call us directly at ${STORE_PHONE}.`;
+      }
+    }
+
+    return [
+      `Your appointment has been rescheduled${result.customerName ? `, ${result.customerName}` : ''}.`,
+      `New date: ${formatDate(newDate)}.`,
+      `New time: ${newTime}.`,
+      `Booking code: ${booking_id.slice(0, 8).toUpperCase()}.`,
+      `You'll receive an updated confirmation shortly. We look forward to seeing you!`,
+    ].join(' ');
+  } catch (err) {
+    console.error('[reschedule_booking] Exception:', String(err));
+    return `I had trouble rescheduling that booking. Please call us directly at ${STORE_PHONE}.`;
+  }
+}
+
+// ── Route Handler ─────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   let rawBody = '';
@@ -313,12 +498,16 @@ export async function POST(req: NextRequest) {
     const msgType = body?.message?.type;
     console.log('[vapi/tools] message.type:', msgType);
 
-    // ââ Handle assistant-request âââââââââââââââââââââââââââââââ
-    // Vapi sends this when a call starts â inject current date/time into first message.
+    // Extract caller phone (used as fallback lookup key for search/cancel/reschedule)
+    const callerPhone = extractCallerPhone(body);
+    if (callerPhone) console.log('[vapi/tools] caller phone detected:', callerPhone);
+
+    // ── Handle assistant-request ───────────────────────────────
+    // Vapi sends this when a call starts — inject current date/time into first message.
     if (msgType === 'assistant-request') {
       const currentDateTime = nowET();
       const isoDate = todayET();
-      console.log('[vapi/tools] assistant-request â injecting date:', currentDateTime);
+      console.log('[vapi/tools] assistant-request → injecting date:', currentDateTime);
       return NextResponse.json({
         assistant: {
           firstMessage: `Hello! Thank you for calling Mayller Bridal Italian Style. I'm Sofia, your AI appointment assistant. Today is ${currentDateTime}. How can I help you today?`,
@@ -328,7 +517,7 @@ export async function POST(req: NextRequest) {
             messages: [
               {
                 role: 'system',
-                content: `Today's date is ${currentDateTime}. ISO date: ${isoDate}. Business hours: MondayâSaturday, 10:00 AM to 6:00 PM Eastern Time.`,
+                content: `Today's date is ${currentDateTime}. ISO date: ${isoDate}. Business hours: Monday–Saturday, 10:00 AM to 6:00 PM Eastern Time.`,
               },
             ],
           },
@@ -336,7 +525,7 @@ export async function POST(req: NextRequest) {
       }, { headers: CORS });
     }
 
-    // ââ Handle both Vapi tool-call formats âââââââââââââââââââââ
+    // ── Handle both Vapi tool-call formats ─────────────────────
     // New format: message.type = "tool-calls", message.toolCallList = [...]
     // Old format: message.type = "function-call", message.functionCall = {...}
 
@@ -360,7 +549,7 @@ export async function POST(req: NextRequest) {
         }];
       }
     } else {
-      console.log('[vapi/tools] Unhandled message type:', msgType, 'â body keys:', Object.keys(body?.message ?? {}).join(', '));
+      console.log('[vapi/tools] Unhandled message type:', msgType, '— body keys:', Object.keys(body?.message ?? {}).join(', '));
       return NextResponse.json({ results: [] }, { headers: CORS });
     }
 
@@ -395,8 +584,14 @@ export async function POST(req: NextRequest) {
           case 'create_booking':
             result = await handleCreateBooking(args);
             break;
+          case 'search_booking':
+            result = await handleSearchBooking(args, callerPhone);
+            break;
           case 'cancel_booking':
-            result = await handleCancelBooking(args);
+            result = await handleCancelBooking(args, callerPhone);
+            break;
+          case 'reschedule_booking':
+            result = await handleRescheduleBooking(args, callerPhone);
             break;
           case 'end_call':
             result = handleEndCall();
