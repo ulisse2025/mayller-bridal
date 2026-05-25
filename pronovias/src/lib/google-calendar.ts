@@ -209,9 +209,9 @@ export async function createBookingEvent(data: {
               data.bookingId ? idTag : null,
             ].filter(Boolean).join('\n')
 
-      const summary = data.bookingId
-          ? `Mayller Bridal - ${label} - ${data.name} ${idTag}`
-              : `Mayller Bridal - ${label} - ${data.name}`
+      // Clean human-readable summary; the [BookingID:N] tag lives in description for the cron mirror,
+    // and the customer-facing 8-char shortBookingId is in extendedProperties + the confirmation email.
+    const summary = `Mayller Bridal - ${label} - ${data.name}`
 
       const insertRes = await calendar.events.insert({
               calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
