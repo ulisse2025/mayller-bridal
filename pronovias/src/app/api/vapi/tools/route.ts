@@ -11,6 +11,8 @@ import {
   sendConfirmationSMS,
   sendCancellationSMS,
   sendCancellationEmail,
+  sendVoicemailEmail,
+  type VoicemailType,
 } from '@/lib/notifications';
 import {
   AppointmentType,
@@ -486,6 +488,73 @@ async function handleRescheduleBooking(
   }
 }
 
+// ── leave_message — voicemail handler ─────────────────────────────────
+
+const VALID_VM_TYPES: VoicemailType[] = [
+  'running_late',
+  'cant_come',
+  'callback_request',
+  'question',
+  'at_door_urgent',
+  'other',
+];
+
+async function handleLeaveMessage(
+  args: Record<string, unknown>,
+  callerPhone: string,
+  fullBody: { message?: { call?: { id?: string } } },
+): Promise<string> {
+  const messageText = typeof args.message_text === 'string' ? args.message_text.trim() : '';
+  const rawType = typeof args.message_type === 'string' ? args.message_type : 'other';
+  const messageType: VoicemailType = (VALID_VM_TYPES as string[]).includes(rawType)
+    ? (rawType as VoicemailType)
+    : 'other';
+  const customerName = typeof args.customer_name === 'string' ? args.customer_name.trim() : undefined;
+
+  if (!messageText) {
+    return "I didn't catch the message. Could you tell me again what you'd like me to pass to the team?";
+  }
+  if (!callerPhone) {
+    return `I need your phone number to leave a message. Could you tell me yours, or call us directly at ${STORE_PHONE}?`;
+  }
+
+  // Try to enrich with booking context — best effort, never blocks the email.
+  let booking: { appointmentLabel?: string; date?: string; time?: string; shortBookingId?: string } | null = null;
+  try {
+    const results = await searchBookings({ phone: callerPhone });
+    if (results.length > 0) {
+      const top = results[0];
+      booking = {
+        appointmentLabel: APPOINTMENT_CONFIG[top.appointmentType as AppointmentType]?.label,
+        date: top.date,
+        time: top.time,
+        shortBookingId: top.shortBookingId,
+      };
+    }
+  } catch (err) {
+    console.warn('[leave_message] booking enrichment failed (continuing):', String(err));
+  }
+
+  const callId = fullBody?.message?.call?.id;
+  const sent = await sendVoicemailEmail({
+    messageText,
+    messageType,
+    customerName,
+    callerPhone,
+    callId,
+    booking,
+  });
+
+  if (!sent) {
+    return `I'm having trouble sending the message right now. Could you call us directly at ${STORE_PHONE}? Sorry for the inconvenience.`;
+  }
+
+  if (messageType === 'at_door_urgent') {
+    return 'I just alerted the team that you are at the door. Someone should reach you in a moment.';
+  }
+  return 'Got it. I let the team know. They will see your message and get back to you.';
+}
+
 // ── Route Handler ─────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -592,6 +661,9 @@ export async function POST(req: NextRequest) {
             break;
           case 'reschedule_booking':
             result = await handleRescheduleBooking(args, callerPhone);
+            break;
+          case 'leave_message':
+            result = await handleLeaveMessage(args, callerPhone, body);
             break;
           case 'end_call':
             result = handleEndCall();
