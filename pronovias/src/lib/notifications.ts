@@ -1,8 +1,8 @@
 // ============================================================
-// MAYLLER BRIDAL — Booking System
+// MAYLLER BRIDAL â Booking System
 // lib/notifications.ts
 // Email via Gmail (Nodemailer + App Password) + SMS via Twilio REST API
-// NOTE: SMS uses fetch() directly — no Twilio SDK / no Axios 30s timeout
+// NOTE: SMS uses fetch() directly â no Twilio SDK / no Axios 30s timeout
 // ============================================================
 
 import nodemailer from 'nodemailer';
@@ -15,7 +15,7 @@ import {
   STORE_NAME,
 } from './booking-types';
 
-// ── Email (Gmail + App Password) ──────────────────────────────
+// ââ Email (Gmail + App Password) ââââââââââââââââââââââââââââââ
 
 function getMailTransporter() {
   return nodemailer.createTransport({
@@ -27,7 +27,7 @@ function getMailTransporter() {
   });
 }
 
-// ── SMS via Twilio REST API (no SDK, no Axios) ────────────────
+// ââ SMS via Twilio REST API (no SDK, no Axios) ââââââââââââââââ
 
 /**
  * Send an SMS via Twilio REST API using native fetch().
@@ -79,7 +79,7 @@ function formatPhone(phone: string): string {
   return phone.startsWith('+') ? phone : `+${digits}`;
 }
 
-// ── Email Templates ───────────────────────────────────────────
+// ââ Email Templates âââââââââââââââââââââââââââââââââââââââââââ
 
 function customerEmailHTML(booking: BookingResult): string {
   const config = APPOINTMENT_CONFIG[booking.appointmentType];
@@ -163,10 +163,10 @@ function customerEmailHTML(booking: BookingResult): string {
               </p>
 
               <p style="margin:0;font-size:15px;color:#333;">
-                We can't wait to be part of your special journey. ✨
+                We can't wait to be part of your special journey. â¨
               </p>
               <p style="margin:8px 0 0;font-size:15px;color:#555;">
-                — The ${STORE_NAME} Team
+                â The ${STORE_NAME} Team
               </p>
             </td>
           </tr>
@@ -175,7 +175,7 @@ function customerEmailHTML(booking: BookingResult): string {
           <tr>
             <td style="background:#f5f5f5;padding:20px 40px;text-align:center;border-top:1px solid #eee;">
               <p style="margin:0;font-size:11px;color:#aaa;letter-spacing:1px;">
-                © 2026 ${STORE_NAME} · ${STORE_ADDRESS}
+                Â© 2026 ${STORE_NAME} Â· ${STORE_ADDRESS}
               </p>
               <p style="margin:4px 0 0;font-size:11px;color:#aaa;">
                 <a href="tel:${STORE_PHONE}" style="color:#c9a96e;text-decoration:none;">${STORE_PHONE}</a>
@@ -195,11 +195,11 @@ function storeNotificationHTML(booking: BookingResult): string {
   const config = APPOINTMENT_CONFIG[booking.appointmentType];
   const shortId = booking.bookingId.slice(0, 8).toUpperCase();
 
-  return `<h2 style="color:#1a1a1a;">🤖 New Booking — Sofia AI</h2>
+  return `<h2 style="color:#1a1a1a;">ð¤ New Booking â Sofia AI</h2>
 <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;font-size:14px;">
   <tr><td><b>Customer</b></td><td>${booking.customerName}</td></tr>
   <tr><td><b>Phone</b></td><td>${booking.customerPhone}</td></tr>
-  <tr><td><b>Email</b></td><td>${booking.customerEmail ?? '—'}</td></tr>
+  <tr><td><b>Email</b></td><td>${booking.customerEmail ?? 'â'}</td></tr>
   <tr><td><b>Type</b></td><td>${config.label}</td></tr>
   <tr><td><b>Date</b></td><td>${formatDate(booking.date)}</td></tr>
   <tr><td><b>Time</b></td><td>${booking.time}</td></tr>
@@ -213,7 +213,7 @@ function storeNotificationHTML(booking: BookingResult): string {
 </p>`;
 }
 
-// ── Public Functions ──────────────────────────────────────────
+// ââ Public Functions ââââââââââââââââââââââââââââââââââââââââââ
 
 /**
  * Send confirmation email to customer (if email provided)
@@ -232,7 +232,7 @@ export async function sendConfirmationEmail(booking: BookingResult): Promise<voi
       transporter.sendMail({
         from: `"${STORE_NAME}" <${process.env.GMAIL_USER}>`,
         to: booking.customerEmail,
-        subject: `✨ Appointment Confirmed — ${config.label} | Mayller Bridal`,
+        subject: `â¨ Appointment Confirmed â ${config.label} | Mayller Bridal`,
         html: customerEmailHTML(booking),
       })
     );
@@ -243,7 +243,7 @@ export async function sendConfirmationEmail(booking: BookingResult): Promise<voi
     transporter.sendMail({
       from: `"Sofia AI Booking" <${process.env.GMAIL_USER}>`,
       to: process.env.GMAIL_USER!,
-      subject: `📅 New Booking [${shortId}] — ${config.label} — ${booking.customerName}`,
+      subject: `ð New Booking [${shortId}] â ${config.label} â ${booking.customerName}`,
       html: storeNotificationHTML(booking),
     })
   );
@@ -287,9 +287,9 @@ export async function sendCancellationEmail(
   await transporter.sendMail({
     from: `"Sofia AI Booking" <${process.env.GMAIL_USER}>`,
     to: process.env.GMAIL_USER!,
-    subject: `❌ Booking Cancelled [${shortId}] — ${customerName}`,
+    subject: `â Booking Cancelled [${shortId}] â ${customerName}`,
     html: `
-      <h2 style="color:#c00;">❌ Appointment Cancelled</h2>
+      <h2 style="color:#c00;">â Appointment Cancelled</h2>
       <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;font-size:14px;">
         <tr><td><b>Customer</b></td><td>${customerName}</td></tr>
         <tr><td><b>Booking ID</b></td><td><b style="color:#c9a96e;">${shortId}</b></td></tr>
@@ -316,4 +316,114 @@ export async function sendCancellationSMS(
   ].join('\n');
 
   await sendTwilioSMS(formatPhone(customerPhone), body);
+}
+
+
+// ────────────────────────────────────────────────────────────
+// VOICEMAIL (added 2026-05-27)
+// ────────────────────────────────────────────────────────────
+
+export type VoicemailType = 'running_late' | 'cant_come' | 'callback_request' | 'question' | 'at_door_urgent' | 'other';
+
+export interface VoicemailPayload {
+  messageText: string;
+  messageType: VoicemailType;
+  customerName?: string;
+  callerPhone: string;
+  callId?: string;
+  booking?: {
+    appointmentLabel?: string;
+    date?: string;
+    time?: string;
+    shortBookingId?: string;
+  } | null;
+}
+
+function subjectFor(p: VoicemailPayload): string {
+  const who = p.customerName ? p.customerName : p.callerPhone;
+  const where = p.booking?.appointmentLabel && p.booking?.time
+    ? ' (' + p.booking.appointmentLabel + ' ' + (p.booking?.date || '') + ' ' + p.booking.time + ')'
+    : '';
+  switch (p.messageType) {
+    case 'at_door_urgent':   return '[URGENT] Customer at the door — ' + who;
+    case 'running_late':     return '[Sofia voicemail] Late arrival — ' + who + where;
+    case 'cant_come':        return '[Sofia voicemail] Cancellation message — ' + who + where;
+    case 'callback_request': return '[Sofia voicemail] Callback request — ' + who;
+    case 'question':         return '[Sofia voicemail] Question — ' + who;
+    default:                 return '[Sofia voicemail] Message — ' + who;
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+function voicemailHtml(p: VoicemailPayload): string {
+  const ts = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' });
+  const isUrgent = p.messageType === 'at_door_urgent';
+  const accent = isUrgent ? '#b91c1c' : '#1a1a1a';
+  const label = isUrgent ? 'URGENT — CUSTOMER AT THE DOOR' : 'SOFIA VOICEMAIL';
+  const phoneE164 = p.callerPhone.replace(/[^+\d]/g, '');
+  const bookingBlock = p.booking
+    ? '<tr><td class="lbl">Booking</td><td class="val">' + escapeHtml((p.booking.appointmentLabel || '') + ' — ' + (p.booking.date || '') + ' ' + (p.booking.time || '') + (p.booking.shortBookingId ? ' (code ' + p.booking.shortBookingId + ')' : '')) + '</td></tr>'
+    : '';
+  const callIdBlock = p.callId
+    ? '<tr><td class="lbl">Call ID</td><td class="val"><a href="https://dashboard.vapi.ai/calls/' + escapeHtml(p.callId) + '" style="color:#888;text-decoration:none">' + escapeHtml(p.callId.slice(0,8)) + '…</a></td></tr>'
+    : '';
+  return '<!doctype html><html><head><meta charset="utf-8"><style>' +
+    'body{font-family:-apple-system,BlinkMacSystemFont,Helvetica,sans-serif;background:#faf9f5;color:#1a1a1a;margin:0;padding:24px}' +
+    '.wrap{max-width:560px;margin:0 auto;background:#fff;border:1px solid #ece8db}' +
+    '.hdr{background:' + accent + ';color:#fff;padding:20px 28px;letter-spacing:.3em;font-size:11px;text-transform:uppercase}' +
+    '.body{padding:28px}' +
+    'table{width:100%;border-collapse:collapse}' +
+    '.lbl{color:#888;font-size:10px;letter-spacing:.2em;text-transform:uppercase;padding:8px 0;width:120px;vertical-align:top}' +
+    '.val{color:#1a1a1a;font-size:14px;padding:8px 0;line-height:1.5}' +
+    '.msg{background:#faf9f5;border-left:3px solid ' + accent + ';padding:14px 18px;margin-top:18px;font-size:14px;line-height:1.6;font-style:italic;color:#333}' +
+    '</style></head><body><div class="wrap">' +
+    '<div class="hdr">' + label + '</div>' +
+    '<div class="body">' +
+    '<table>' +
+    '<tr><td class="lbl">From</td><td class="val">' + escapeHtml(p.customerName || 'Unknown caller') + '</td></tr>' +
+    '<tr><td class="lbl">Phone</td><td class="val"><a href="tel:' + phoneE164 + '" style="color:#1a1a1a">' + escapeHtml(p.callerPhone) + '</a></td></tr>' +
+    bookingBlock +
+    '<tr><td class="lbl">Received</td><td class="val">' + escapeHtml(ts) + ' ET</td></tr>' +
+    callIdBlock +
+    '</table>' +
+    '<div class="msg">' + escapeHtml(p.messageText) + '</div>' +
+    '</div></div></body></html>';
+}
+
+/**
+ * Send a voicemail email to the shop with a customer message captured by Sofia.
+ * Uses the same Gmail SMTP transport configured for confirmation emails.
+ */
+export async function sendVoicemailEmail(p: VoicemailPayload): Promise<boolean> {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    console.error('[voicemail] GMAIL_USER or GMAIL_APP_PASSWORD missing');
+    return false;
+  }
+  try {
+    const nodemailer = (await import('nodemailer')).default;
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+    });
+    const subject = subjectFor(p);
+    const html = voicemailHtml(p);
+    const textBody = 'Voicemail from ' + (p.customerName || 'Unknown') + ' (' + p.callerPhone + ')\n\n' +
+      'Message: ' + p.messageText + '\n\n' +
+      (p.booking ? 'Booking: ' + (p.booking.appointmentLabel || '') + ' ' + (p.booking.date || '') + ' ' + (p.booking.time || '') + '\n' : '') +
+      (p.callId ? 'Call ID: ' + p.callId + '\n' : '');
+    await transporter.sendMail({
+      from: '"Mayller Bridal" <' + process.env.GMAIL_USER + '>',
+      to: process.env.GMAIL_USER,
+      subject,
+      text: textBody,
+      html,
+    });
+    return true;
+  } catch (err) {
+    console.error('[voicemail] send failed:', err);
+    return false;
+  }
 }
