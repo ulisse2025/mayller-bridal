@@ -11,7 +11,8 @@
  *  5. Update Postgres row with external_event_id (so cron sync won't dup it)
  *  6. Send notification email to the shop
  *  7. Send branded confirmation email to the customer
- *  8. Return result. Email failures DO NOT roll back the booking.
+ *  7b. Send confirmation SMS to the customer (only if smsConsent === true)
+ *  8. Return result. Email/SMS failures DO NOT roll back the booking.
  *  9. If calendar creation fails AFTER reserveSlot, we still keep the row
  *     so the slot stays held; Stefano can resolve manually if needed.
  */
@@ -20,6 +21,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { createBookingEvent, isSlotBusyOnCalendar } from '@/lib/google-calendar'
 import { reserveSlot, releaseSlot, updateBookingExternalRef } from '@/lib/bookings'
+import { sendConfirmationSMS } from '@/lib/notifications'
+import type { BookingResult } from '@/lib/booking-types'
 
 export const runtime = 'nodejs'
 
@@ -164,7 +167,7 @@ function buildCustomerConfirmationHtml(d: EmailData) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { service, date, time, name, email, phone, notes } = body
+    const { service, date, time, name, email, phone, notes, smsConsent } = body
 
     if (!service || !date || !time || !name || !email || !phone) {
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
@@ -210,7 +213,7 @@ export async function POST(req: NextRequest) {
       service, date, time, name, email, phone, notes,
             bookingId,
 
-      
+
     })
 
     if (calResult.shortBookingId) emailData.shortBookingId = calResult.shortBookingId
@@ -266,11 +269,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 7b. SMS confirmation — only if the customer ticked the consent box
+    let smsSent = false
+    if (smsConsent === true && phone) {
+      try {
+        await sendConfirmationSMS({
+          bookingId: calResult.shortBookingId || String(bookingId),
+          customerName: name,
+          customerPhone: phone,
+          customerEmail: email,
+          date,
+          time,
+          appointmentType: service === 'wedding' ? 'wedding_consultation' : 'alteration',
+          label: serviceLabel,
+          duration: service === 'wedding' ? 90 : 30,
+        } as BookingResult)
+        smsSent = true
+      } catch (smsErr) {
+        console.error('[book] SMS failed (booking still OK):', smsErr)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       bookingId,
       shopEmailSent,
       customerEmailSent,
+      smsSent,
       calendarCreated: calResult.created,
     })
   } catch (err) {
