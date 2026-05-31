@@ -25,6 +25,20 @@ function getSlotsForService(service: string) {
   return SLOTS_BY_SERVICE[service] ?? SLOTS_BY_SERVICE.alteration
 }
 
+// Saturday rule: bookings accepted only up to a 2:00 PM start, not beyond.
+const SAT_LAST_START_MIN = 14 * 60 // 14:00
+
+function slotStartMinutes(s: string): number {
+  const mt = s.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
+  if (!mt) return 0
+  let h = parseInt(mt[1], 10)
+  const mi = parseInt(mt[2], 10)
+  const ap = mt[3].toUpperCase()
+  if (ap === 'PM' && h !== 12) h += 12
+  if (ap === 'AM' && h === 12) h = 0
+  return h * 60 + mi
+}
+
 const SERVICES = [
   { id: 'alteration', label: 'Alteration', sublabel: 'Expert tailoring session with our master seamstress', duration: '30 min' },
   { id: 'wedding', label: 'Wedding Dress', sublabel: 'Private consultation - find your perfect gown', duration: '90 min' },
@@ -78,7 +92,23 @@ export function BookingCalendar() {
   const [error, setError] = useState('')
 
   const { am: amSlots, pm: pmSlots } = useMemo(() => getSlotsForService(form.service), [form.service])
-  const allSlots = useMemo(() => [...amSlots, ...pmSlots], [amSlots, pmSlots])
+
+  // Saturday (day 6): show only slots that START at or before 2:00 PM.
+  const isSaturday = useMemo(() => {
+    if (!form.date) return false
+    const [y, m, d] = form.date.split('-').map(Number)
+    return new Date(y, m - 1, d).getDay() === 6
+  }, [form.date])
+
+  const amSlotsShown = useMemo(
+    () => (isSaturday ? amSlots.filter(s => slotStartMinutes(s) <= SAT_LAST_START_MIN) : amSlots),
+    [isSaturday, amSlots]
+  )
+  const pmSlotsShown = useMemo(
+    () => (isSaturday ? pmSlots.filter(s => slotStartMinutes(s) <= SAT_LAST_START_MIN) : pmSlots),
+    [isSaturday, pmSlots]
+  )
+  const allSlotsShown = useMemo(() => [...amSlotsShown, ...pmSlotsShown], [amSlotsShown, pmSlotsShown])
 
   const days = useMemo(() => buildCalendarDays(calYear, calMonth), [calYear, calMonth])
   const canGoBack = calYear > today.getFullYear() || calMonth > today.getMonth()
@@ -233,12 +263,12 @@ export function BookingCalendar() {
                 )
               })}
             </div>
-            <p className="text-white/20 text-xs mt-4">Open Monday-Saturday</p>
+            <p className="text-white/20 text-xs mt-4">Open Monday-Saturday · Saturday until 2:00 PM</p>
           </div>
 
           <div>
             <p className="text-xs tracking-[0.25em] uppercase text-white/40 mb-2">{form.date ? `Available times - ${formatSelectedDate(form.date)}` : 'Select a date first'}</p>
-            {form.service && (<p className="text-xs text-amber-300/40 mb-6 tracking-wider">{SERVICES.find(s => s.id === form.service)?.label} - slots every {form.service === 'alteration' ? '30 minutes' : '90 minutes'}</p>)}
+            {form.service && (<p className="text-xs text-amber-300/40 mb-6 tracking-wider">{SERVICES.find(s => s.id === form.service)?.label} - slots every {form.service === 'alteration' ? '30 minutes' : '90 minutes'}{isSaturday ? ' · Saturday until 2:00 PM' : ''}</p>)}
             {form.date ? (
               loadingSlots ? (
                 <div className="h-48 flex items-center justify-center">
@@ -248,23 +278,27 @@ export function BookingCalendar() {
                 <>
                   <p className="text-xs text-white/30 tracking-wider mb-3">MORNING</p>
                   <div className={cn('grid gap-2 mb-6', form.service === 'alteration' ? 'grid-cols-3' : 'grid-cols-2')}>
-                    {amSlots.map((t) => {
+                    {amSlotsShown.map((t) => {
                       const booked = isBooked(t)
                       return (
                         <button key={t} onClick={() => !booked && setForm(f => ({ ...f, time: t }))} disabled={booked} className={cn('py-3 text-sm tracking-wider border transition-all', booked ? 'border-white/5 text-white/15 cursor-not-allowed line-through' : form.time === t ? 'border-amber-400 bg-amber-400/10 text-amber-300' : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white')}>{t}</button>
                       )
                     })}
                   </div>
-                  <p className="text-xs text-white/30 tracking-wider mb-3">AFTERNOON</p>
-                  <div className={cn('grid gap-2', form.service === 'alteration' ? 'grid-cols-4' : 'grid-cols-2')}>
-                    {pmSlots.map((t) => {
-                      const booked = isBooked(t)
-                      return (
-                        <button key={t} onClick={() => !booked && setForm(f => ({ ...f, time: t }))} disabled={booked} className={cn('py-3 text-sm tracking-wider border transition-all', booked ? 'border-white/5 text-white/15 cursor-not-allowed line-through' : form.time === t ? 'border-amber-400 bg-amber-400/10 text-amber-300' : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white')}>{t}</button>
-                      )
-                    })}
-                  </div>
-                  {bookedSlots.length >= allSlots.length && allSlots.length > 0 && (<p className="mt-4 text-amber-300/60 text-xs tracking-wider">All slots are booked for this day. Please select another date.</p>)}
+                  {pmSlotsShown.length > 0 && (
+                    <>
+                      <p className="text-xs text-white/30 tracking-wider mb-3">AFTERNOON</p>
+                      <div className={cn('grid gap-2', form.service === 'alteration' ? 'grid-cols-4' : 'grid-cols-2')}>
+                        {pmSlotsShown.map((t) => {
+                          const booked = isBooked(t)
+                          return (
+                            <button key={t} onClick={() => !booked && setForm(f => ({ ...f, time: t }))} disabled={booked} className={cn('py-3 text-sm tracking-wider border transition-all', booked ? 'border-white/5 text-white/15 cursor-not-allowed line-through' : form.time === t ? 'border-amber-400 bg-amber-400/10 text-amber-300' : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white')}>{t}</button>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+                  {bookedSlots.length >= allSlotsShown.length && allSlotsShown.length > 0 && (<p className="mt-4 text-amber-300/60 text-xs tracking-wider">All slots are booked for this day. Please select another date.</p>)}
                 </>
               )
             ) : (

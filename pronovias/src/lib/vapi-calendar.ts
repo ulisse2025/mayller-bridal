@@ -149,8 +149,10 @@ export async function getAvailableSlots(
   const available: string[] = [];
   let currentMin = BUSINESS_HOURS.start * 60; // minutes since midnight ET
   const endMin = BUSINESS_HOURS.end * 60;
+  // Saturday (day 6): accept bookings only up to a 2:00 PM start, not beyond.
+  const lastStartMin = dayOfWeek === 6 ? 14 * 60 : endMin - config.duration;
 
-  while (currentMin + config.duration <= endMin) {
+  while (currentMin <= lastStartMin && currentMin + config.duration <= endMin) {
     const slotHour = Math.floor(currentMin / 60);
     const slotMinute = currentMin % 60;
 
@@ -624,6 +626,14 @@ export async function rescheduleBookingById(
   }
   if (parsed.hours < BUSINESS_HOURS.start || parsed.hours >= BUSINESS_HOURS.end) {
     return { success: false, reason: 'invalid-time' };
+  }
+  // Saturday (day 6): no appointment may start after 2:00 PM.
+  {
+    const [ry, rm, rd] = newDate.split('-').map(Number);
+    const newDow = new Date(ry, rm - 1, rd).getDay();
+    if (newDow === 6 && (parsed.hours * 60 + parsed.minutes) > 14 * 60) {
+      return { success: false, reason: 'invalid-time' };
+    }
   }
 
   const newStart = easternDate(newDate, parsed.hours, parsed.minutes);
