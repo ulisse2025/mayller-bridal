@@ -10,8 +10,13 @@
  * - Sends a branded customer confirmation email for newly synced VOICE
  *   bookings (Sofia already sends SMS, this complements with email).
  *
- * Auth: reuses the same OAuth refresh token as /api/book (read-only scope
- * is enough but we keep calendar.events scope to share credentials).
+ * FIX (2026-06-02): auth migrated from the personal OAuth refresh token to the
+ * same Google service account Sofia uses (vapi-calendar.ts). The OAuth refresh
+ * token kept expiring (consent screen in "Testing" mode -> 7-day expiry), which
+ * silently broke this cron: listUpcomingEvents() threw, so no mirror, no
+ * cancellation sweep, and stale slots were never freed. The service account
+ * never expires. Read-only listing only; we keep the calendar scope to share
+ * credentials.
  *
  * Safety: does NOT touch Sofia's code, does NOT write to the calendar,
  * does NOT modify rows where source='voice' beyond inserting them.
@@ -86,17 +91,23 @@ function extractCustomer(ev: calendar_v3.Schema$Event): {
 }
 
 // ── Google Calendar client ────────────────────────────────────────────
-function getOAuthClient() {
-  const client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-  )
-  client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
-  return client
+/**
+ * Service-account auth, identical to Sofia (vapi-calendar.ts) and the web
+ * booking path (google-calendar.ts). Vercel stores the multiline private key
+ * with literal \n, so we restore the real newlines here.
+ */
+function getCalendarAuth() {
+  return new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_CLIENT_EMAIL!,
+      private_key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
+    },
+    scopes: ['https://www.googleapis.com/auth/calendar'],
+  })
 }
 
 async function listUpcomingEvents(): Promise<calendar_v3.Schema$Event[]> {
-  const calendar = google.calendar({ version: 'v3', auth: getOAuthClient() })
+  const calendar = google.calendar({ version: 'v3', auth: getCalendarAuth() })
   const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'
   const now = new Date()
   const future = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000) // 60 days ahead
@@ -192,7 +203,7 @@ async function sendVoiceCustomerEmail(opts: {
   }
 }
 
-// ── Main sync ─────────────────────────────────────────────────────────
+// ── Main sync ────────────────────────────────────────────────────────
 export type SyncResult = {
   ok: boolean
   scanned: number
