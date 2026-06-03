@@ -13,7 +13,13 @@
  *   2. Register a new channel pointing at /api/calendar/webhook.
  *   3. Persist channel_id + resource_id + expiration in calendar_watches.
  *
- * Auth: protected by CRON_SECRET (Vercel cron Bearer header).
+ * Endpoint auth: protected by CRON_SECRET (Vercel cron Bearer header).
+ *
+ * FIX (2026-06-02): Google auth migrated from the personal OAuth refresh token
+ * to the same service account Sofia uses. The OAuth token kept expiring
+ * (consent screen in "Testing" mode -> 7-day expiry), so events.watch() failed
+ * and NO push channel was registered: real-time calendar->site sync was dead
+ * since 2026-05-31. The service account never expires.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -25,13 +31,19 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-function getOAuthClient() {
-  const client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-  )
-  client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
-  return client
+/**
+ * Service-account auth, identical to Sofia (vapi-calendar.ts), the web booking
+ * path (google-calendar.ts) and the mirror (calendar-mirror.ts). Vercel stores
+ * the multiline private key with literal \n, so we restore the real newlines.
+ */
+function getCalendarAuth() {
+  return new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_CLIENT_EMAIL!,
+      private_key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
+    },
+    scopes: ['https://www.googleapis.com/auth/calendar'],
+  })
 }
 
 export async function GET(req: NextRequest) {
@@ -49,7 +61,7 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const calendar   = google.calendar({ version: 'v3', auth: getOAuthClient() })
+  const calendar   = google.calendar({ version: 'v3', auth: getCalendarAuth() })
   const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'
   const webhookUrl = 'https://mayllerbridal.com/api/calendar/webhook'
 
