@@ -3,21 +3,25 @@
  *
  * Google Calendar integration for the WEB booking flow.
  *
- * IMPORTANT: this file is the WEB path. Sofia (Vapi voice agent) uses a
- * separate path: /lib/vapi-calendar.ts with its own credentials. Do NOT
- * cross-wire the two.
+ * FIX (2026-06-02): the WEB path now authenticates with the SAME Google
+ * Service Account that Sofia (vapi-calendar.ts) uses, instead of a personal
+ * OAuth refresh token. The OAuth refresh token kept expiring (the OAuth
+ * consent screen is in "Testing" mode -> 7-day token expiry), which made
+ * website bookings silently fail to appear on Google Calendar while the
+ * confirmation email still went out. The service account never expires.
  *
- * v2 (May 2026):
- *  - createBookingEvent returns the calendar event id so the caller can
- *    store it in Postgres (for cron mirror dedup).
- *  - Added isSlotBusyOnCalendar() for realtime double-check.
+ * Two behavioural notes vs the old OAuth version:
+ *  - A service account WITHOUT domain-wide delegation cannot invite
+ *    attendees, so we no longer add the customer as an attendee and no
+ *    longer call sendUpdates:'all'. The customer still receives the branded
+ *    confirmation email sent by /api/book, exactly like before.
+ *  - Everything else (extendedProperties, [BookingID:N] tag, shortBookingId,
+ *    timezone handling) is unchanged, so Sofia and the cron mirror keep
+ *    recognising web bookings.
  *
- * v3 (2026-05-24):
- *  - createBookingEvent now accepts an optional bookingId and injects a
- *    machine-readable [BookingID:n] tag into the event summary and
- *    description. Sofia (Vapi) and the calendar mirror parse that tag
- *    to manage web-originated bookings the same way as voice ones.
- *  - Added extractBookingIdFromEvent() utility for consumers.
+ * The old OAuth helpers (getAuthUrl / exchangeCodeForTokens) are kept so the
+ * /api/auth/google/callback route still compiles, but they are no longer on
+ * the booking path.
  */
 
 import { google } from 'googleapis'
@@ -34,14 +38,22 @@ const SERVICE_LABELS: Record<string, string> = {
     wedding: 'Wedding Dress',
 }
 
-function getOAuthClient() {
-    const client = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET,
-        )
-    client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
-    return client
+/**
+ * Service-account auth, identical to the one Sofia uses in vapi-calendar.ts.
+ * Vercel stores the multiline private key with literal \n, so we restore the
+ * real newlines here.
+ */
+function getCalendarAuth() {
+    return new google.auth.GoogleAuth({
+        credentials: {
+            client_email: process.env.GOOGLE_CLIENT_EMAIL!,
+            private_key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
+        },
+        scopes: ['https://www.googleapis.com/auth/calendar'],
+    })
 }
+
+/* ─── Legacy OAuth helpers (kept only for /api/auth/google/callback) ────── */
 
 function getRedirectUri(): string {
     if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI
@@ -126,7 +138,7 @@ export function extractBookingIdFromEvent(ev: {
 }
 
 export async function isSlotBusyOnCalendar(date: string, time: string, service: string): Promise<boolean> {
-    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_REFRESH_TOKEN) return false
+    if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) return false
 
   const { hh, mm } = parse12h(time)
     const duration = DURATION_MINUTES[service] ?? 60
@@ -137,7 +149,7 @@ export async function isSlotBusyOnCalendar(date: string, time: string, service: 
   const startUTC = etLocalToUTC(startLocal)
     const endUTC = etLocalToUTC(endLocal)
 
-  const calendar = google.calendar({ version: 'v3', auth: getOAuthClient() })
+  const calendar = google.calendar({ version: 'v3', auth: getCalendarAuth() })
     const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'
 
   const res = await calendar.freebusy.query({
@@ -166,17 +178,16 @@ export async function createBookingEvent(data: {
      */
                                            bookingId?: number
 }): Promise<{ created: boolean; eventId?: string; reason?: string ; shortBookingId?: string }> {
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-    const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
+    const clientEmail = process.env.GOOGLE_CLIENT_EMAIL
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY
 
-  if (!clientId || !clientSecret || !refreshToken) {
-        console.warn('Google Calendar credentials not configured - skipping event creation.')
+  if (!clientEmail || !privateKey) {
+        console.warn('Google Calendar service account not configured - skipping event creation.')
         return { created: false, reason: 'missing-credentials' }
   }
 
   try {
-        const auth = getOAuthClient()
+        const auth = getCalendarAuth()
         const calendar = google.calendar({ version: 'v3', auth })
 
       const duration = DURATION_MINUTES[data.service] ?? 60
@@ -191,7 +202,7 @@ export async function createBookingEvent(data: {
       const startLocal = buildLocalDateTime(data.date, hh, mm)
         const endLocal = buildLocalDateTime(data.date, endHH, endMM)
 
-      console.log(`[google-calendar] Creating event: ${label} on ${data.date} at ${data.time} (startLocal=${startLocal})`)
+      console.log(`[google-calendar] Creating event (service account): ${label} on ${data.date} at ${data.time} (startLocal=${startLocal})`)
 
       const bookingUuid = randomUUID()
           const shortBookingId = bookingUuid.slice(0, 8).toUpperCase()
@@ -215,14 +226,12 @@ export async function createBookingEvent(data: {
 
       const insertRes = await calendar.events.insert({
               calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
-              sendUpdates: 'all',
               requestBody: {
                         summary,
                         description,
                         location: process.env.BUSINESS_ADDRESS || 'Mayller Bridal Italian Style, Sinking Spring, PA',
                         start: { dateTime: startLocal, timeZone: TIMEZONE },
                         end: { dateTime: endLocal, timeZone: TIMEZONE },
-                        attendees: [{ email: data.email, displayName: data.name }],
                   extendedProperties: {
                       private: {
                           bookingId: bookingUuid,
