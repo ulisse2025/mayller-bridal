@@ -18,14 +18,6 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 60 * 60 * 24 * 7, // 7 days
   },
 
-  // Modern compile target - smaller bundles
-  experimental: {
-    optimizePackageImports: [
-      'lucide-react',
-      'framer-motion',
-      'motion',
-    ],
-  },
 
   async headers() {
     return [
