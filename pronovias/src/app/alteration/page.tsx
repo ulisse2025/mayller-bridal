@@ -1,194 +1,155 @@
-'use client'
-
-import { useEffect, useState, useCallback } from 'react'
+import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
-import { AnimatedNavFramer } from '@/components/ui/navigation-menu'
+import { SiteHeader, MobileActionBar } from '@/components/site/site-header'
+import { SiteFooter } from '@/components/site/site-footer'
 
-type Photo = { id: string; url: string; caption: string }
+export const metadata: Metadata = {
+  title: 'Bridal Alterations in Pennsylvania',
+  description:
+    'Master bridal alterations by Italian-trained tailors in Sinking Spring, PA. Hemming, bustles, resizing, restyling — for wedding dresses, tuxedos and formal wear.',
+  alternates: { canonical: 'https://mayllerbridal.com/alteration' },
+}
 
-const DEFAULTS: Photo[] = [
-  { id: 'd1', url: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80', caption: 'Hand-Stitched Hem' },
-  { id: 'd2', url: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80', caption: 'A Perfect Fit' },
-  { id: 'd3', url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=800&q=80', caption: 'Italian Beadwork' },
-  { id: 'd4', url: 'https://images.unsplash.com/photo-1515405295579-ba7b45403062?auto=format&fit=crop&w=800&q=80', caption: 'Final Touches' },
+const SERVICES = [
+  { title: 'Hemming & Length', text: 'Perfect length over your wedding shoes, preserving lace edges and horsehair trim.' },
+  { title: 'Bustles', text: 'French, American or ballroom bustle — your train, ready for the dance floor.' },
+  { title: 'Resizing', text: 'Taking in or letting out bodices, cups, boning and zippers with couture technique.' },
+  { title: 'Restyling', text: 'Neckline changes, sleeves added or removed, modernizing an heirloom gown.' },
+  { title: 'Tuxedos & Suits', text: 'Groom and groomsmen tailoring: jackets, trousers, shirts — fitted in house.' },
+  { title: 'Custom Embroidery', text: 'Initials, dates and personal details embroidered by hand or DTF.' },
 ]
 
 const STEPS = [
-  { n: '01', title: 'Consultation', desc: 'Bring your gown and tell us your wishes. We listen, take notes, and plan together what needs to happen.' },
-  { n: '02', title: 'Measurements', desc: 'Precise measurements taken by hand by our master seamstress — the foundation of every great fit.' },
-  { n: '03', title: 'Tailoring', desc: 'Hand-finished stitching, careful pinning, and the patience that only Italian-trained craftsmanship brings.' },
-  { n: '04', title: 'Final Fitting', desc: 'Try the finished gown. We adjust until it&apos;s exactly right — no compromise, no shortcuts.' },
-]
-
-const SERVICES = [
-  { name: 'Wedding Dress Alterations', desc: 'Hem, bustle, bodice, sleeves, full restyling — for gowns purchased anywhere.' },
-  { name: 'Bridesmaid &amp; Mother of the Bride', desc: 'Same care and precision for the wedding party.' },
-  { name: 'Tuxedo &amp; Formal Wear', desc: 'For the groom, the groomsmen, and any special occasion suit.' },
-  { name: 'Custom Restyling', desc: 'Heirloom dresses, vintage finds, family pieces — restored and refitted with respect.' },
+  { n: '1', title: 'Fitting', text: 'A 30-minute appointment with our tailor. We pin, measure and plan every adjustment.' },
+  { n: '2', title: 'Tailoring', text: 'Your garment is worked by hand in our atelier with Italian technique.' },
+  { n: '3', title: 'Final try-on', text: 'You come back, you try it on, it fits like couture. That simple.' },
 ]
 
 export default function AlterationPage() {
-  const [photos, setPhotos] = useState<Photo[]>(DEFAULTS)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [adminPw, setAdminPw] = useState('')
-
-  useEffect(() => {
-    const pw = sessionStorage.getItem('mayller-admin-pw')
-    if (pw) { setIsAdmin(true); setAdminPw(pw) }
-    fetch('/api/admin/photos?section=alteration')
-      .then(r => r.json()).then(d => { if (d.photos?.length) setPhotos(d.photos) }).catch(() => {})
-  }, [])
-
-  const upload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return
-    setUploading(true)
-    const fd = new FormData()
-    fd.append('file', file); fd.append('section', 'alteration')
-    fd.append('caption', file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '))
-    const res = await fetch('/api/admin/upload', { method: 'POST', headers: { 'x-admin-password': adminPw }, body: fd })
-    const data = await res.json()
-    if (data.photo) setPhotos(p => [...p, data.photo])
-    setUploading(false); e.target.value = ''
-  }, [adminPw])
-
-  const remove = useCallback(async (id: string) => {
-    await fetch(`/api/admin/photos?section=alteration&id=${id}`, { method: 'DELETE', headers: { 'x-admin-password': adminPw } })
-    setPhotos(p => p.filter(x => x.id !== id))
-  }, [adminPw])
-
   return (
-    <div className="min-h-screen bg-black text-white">
-      <AnimatedNavFramer />
-
-      {/* Hero */}
-      <section className="h-screen relative flex items-center justify-center overflow-hidden">
-        <img src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1600&q=90"
-          alt="Master Tailoring" className="absolute inset-0 w-full h-full object-cover opacity-25" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black" />
-        <div className="relative z-10 text-center px-4">
-          <p className="text-amber-300/50 text-xs tracking-[0.5em] uppercase mb-6">Mayller · Atelier Service</p>
-          <h1 className="text-[clamp(3.5rem,9vw,8rem)] font-light tracking-[0.1em] leading-none mb-8">ALTERATIONS</h1>
-          <p className="text-white/40 text-sm tracking-[0.2em] max-w-md mx-auto leading-relaxed mb-10">
-            The art of the perfect fit.<br />Italian-trained tailoring, here in Sinking Spring.
-          </p>
-          <Link href="/#appointment"
-            className="inline-block px-12 py-4 bg-amber-400 text-black text-xs font-bold tracking-widest uppercase hover:bg-amber-300 transition-colors">
-            Book Alteration Appointment
-          </Link>
-        </div>
-      </section>
-
-      {/* Intro */}
-      <section className="py-20 px-8 md:px-20 border-t border-white/10">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-amber-300/50 text-xs tracking-[0.4em] uppercase mb-5">Why Mayller</p>
-          <h2 className="text-3xl font-light tracking-wide mb-6">Tailoring is a craft, not a checklist</h2>
-          <p className="text-white/50 leading-relaxed">
-            We didn&apos;t learn to alter a dress from a YouTube video. Our master seamstress trained in
-            Italy where wedding tailoring is taught the way fine cooking is taught — slowly, by hand,
-            and with respect for the materials. That&apos;s the standard we bring to every gown that
-            crosses our table, no matter where it was bought.
-          </p>
-        </div>
-      </section>
-
-      {/* Process */}
-      <section className="py-28 px-8 md:px-20 border-t border-white/10 bg-white/[0.02]">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-amber-300/50 text-xs tracking-[0.4em] uppercase mb-3">The Process</p>
-            <h2 className="text-3xl font-light tracking-[0.2em]">Four Steps to Perfection</h2>
-          </div>
-          <div className="grid md:grid-cols-4 gap-8">
-            {STEPS.map((s, i) => (
-              <div key={s.n} className="relative">
-                {i < 3 && <div className="hidden md:block absolute top-6 left-full w-full h-px bg-white/10 -translate-x-1/2" />}
-                <div className="w-12 h-12 rounded-full border border-amber-400/30 flex items-center justify-center mb-5">
-                  <span className="text-amber-300/60 text-xs font-light tracking-widest">{s.n}</span>
-                </div>
-                <h3 className="text-sm font-medium tracking-[0.2em] uppercase mb-3">{s.title}</h3>
-                <p className="text-white/35 text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: s.desc }} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Services list */}
-      <section className="py-20 px-8 md:px-20 border-t border-white/10">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-amber-300/50 text-xs tracking-[0.4em] uppercase mb-3">What We Tailor</p>
-            <h2 className="text-3xl font-light tracking-[0.15em]">Services</h2>
-          </div>
-          <div className="grid md:grid-cols-2 gap-8">
-            {SERVICES.map(s => (
-              <div key={s.name} className="border-l-2 border-amber-400/30 pl-6">
-                <h3 className="text-amber-300/80 text-sm tracking-[0.15em] uppercase mb-3" dangerouslySetInnerHTML={{ __html: s.name }} />
-                <p className="text-white/40 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: s.desc }} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Service card */}
-      <section className="py-20 px-8 md:px-20 border-t border-white/10 bg-white/[0.02]">
-        <div className="max-w-lg mx-auto text-center">
-          <p className="text-amber-300/50 text-xs tracking-[0.4em] uppercase mb-3">Appointment Details</p>
-          <h2 className="text-3xl font-light tracking-widest mb-10">Alteration Session</h2>
-          <div className="border border-white/10 p-12">
-            <p className="text-xs tracking-[0.3em] uppercase text-white/25 mb-2">Duration</p>
-            <p className="text-6xl font-light text-amber-300 mb-1">30</p>
-            <p className="text-white/30 text-sm tracking-wider mb-6">minutes</p>
-            <p className="text-white/40 text-sm leading-relaxed mb-10">
-              One-on-one fitting with our master seamstress.<br />
-              Full consultation, measurements, and planning included.
+    <>
+      <SiteHeader />
+      <main className="bg-ivory pt-20">
+        {/* Hero */}
+        <section className="mx-auto grid max-w-7xl items-center gap-10 px-6 pb-20 pt-16 lg:grid-cols-2 lg:px-12 lg:pt-24">
+          <div>
+            <p className="eyebrow">Master Tailoring</p>
+            <h1 className="font-display mt-4 text-[clamp(2.4rem,5vw,4rem)] font-medium leading-tight text-nero">
+              Bridal Alterations &amp; Tailoring
+            </h1>
+            <p className="mt-5 max-w-xl text-base font-light leading-relaxed text-taupe">
+              The most beautiful gown in the world still has to fit <em>you</em>. Our
+              Italian-trained tailors alter wedding dresses, tuxedos and formal wear in
+              house — hemming, bustles, resizing and full restyling, sewn by hand.
             </p>
-            <Link href="/#appointment"
-              className="block w-full py-4 bg-white text-black text-xs font-bold tracking-[0.3em] uppercase hover:bg-amber-300 transition-colors">
-              Book Now
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Gallery */}
-      <section className="py-20 px-8 md:px-20 border-t border-white/10">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-end justify-between mb-10">
-            <div>
-              <p className="text-amber-300/40 text-xs tracking-[0.3em] uppercase mb-2">Portfolio</p>
-              <h2 className="text-2xl font-light tracking-widest">Our Work</h2>
+            <div className="mt-9 flex flex-wrap gap-4">
+              <Link
+                href="/#appointment"
+                className="bg-nero px-8 py-4 text-[11px] uppercase tracking-[0.24em] text-ivory transition-colors hover:bg-champagne-dark"
+              >
+                Book an Alteration
+              </Link>
+              <a
+                href="tel:+14846386555"
+                className="border border-champagne px-8 py-4 text-[11px] uppercase tracking-[0.24em] text-nero transition-colors hover:bg-champagne/10"
+              >
+                Call Now
+              </a>
             </div>
-            {isAdmin && (
-              <label className={`cursor-pointer flex items-center gap-2 px-5 py-2.5 border border-amber-400/40 text-amber-300/80 text-xs tracking-widest uppercase hover:bg-amber-400/10 transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
-                {uploading ? 'Uploading...' : 'Add Photo'}
-                <input type="file" accept="image/*" className="hidden" onChange={upload} />
-              </label>
-            )}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {photos.map(photo => (
-              <div key={photo.id} className="group relative aspect-square overflow-hidden">
-                <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all flex flex-col justify-end p-3 opacity-0 group-hover:opacity-100">
-                  <p className="text-white text-xs tracking-wider">{photo.caption}</p>
-                  {isAdmin && <button onClick={() => remove(photo.id)} className="mt-1 text-red-400/80 text-xs hover:text-red-300 text-left">Remove</button>}
+          <div className="relative aspect-[4/3] overflow-hidden bg-ivory-deep">
+            <Image
+              src="/images/detail-01-atelier.webp"
+              alt="Italian tailor working by hand on a wedding dress at Mayller Bridal atelier, Pennsylvania"
+              fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              quality={78}
+              priority
+              className="object-cover"
+            />
+          </div>
+        </section>
+
+        {/* Services */}
+        <section className="bg-ivory-deep">
+          <div className="mx-auto max-w-7xl px-6 py-20 lg:px-12">
+            <h2 className="font-display text-center text-[clamp(1.8rem,3.5vw,2.75rem)] font-medium text-nero">
+              What we do
+            </h2>
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {SERVICES.map((s) => (
+                <div key={s.title} className="border border-line bg-white px-7 py-9">
+                  <h3 className="font-display text-xl font-semibold text-nero">{s.title}</h3>
+                  <p className="mt-3 text-sm font-light leading-relaxed text-taupe">{s.text}</p>
                 </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Process */}
+        <section className="mx-auto max-w-7xl px-6 py-20 lg:px-12">
+          <h2 className="font-display text-center text-[clamp(1.8rem,3.5vw,2.75rem)] font-medium text-nero">
+            How it works
+          </h2>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {STEPS.map((s) => (
+              <div key={s.n} className="border border-line bg-white px-7 py-10 text-center">
+                <span className="font-display text-4xl text-champagne">{s.n}</span>
+                <h3 className="font-display mt-4 text-xl font-semibold text-nero">{s.title}</h3>
+                <p className="mt-3 text-sm font-light leading-relaxed text-taupe">{s.text}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      <footer className="border-t border-white/10 py-8 px-8 md:px-20 flex justify-between items-center">
-        <Link href="/" className="text-xs font-light tracking-[0.3em] text-white/30 hover:text-white transition-colors uppercase">Mayller</Link>
-        <p className="text-white/15 text-xs tracking-widest">Master Tailoring · 30 min sessions</p>
-        <Link href="/#appointment" className="text-xs tracking-widest uppercase text-amber-300/50 hover:text-amber-300 transition-colors">Book →</Link>
-      </footer>
-    </div>
+        {/* Atelier photos */}
+        <section className="mx-auto max-w-7xl px-6 pb-20 lg:px-12">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:gap-6">
+            <div className="relative aspect-square overflow-hidden bg-ivory-deep">
+              <Image
+                src="/images/detail-02-atelier.webp"
+                alt="Hand-sewing details on an Italian wedding gown"
+                fill sizes="(max-width: 768px) 50vw, 33vw" quality={75} loading="lazy" className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-square overflow-hidden bg-ivory-deep">
+              <Image
+                src="/images/tuxedo-02-fitting.webp"
+                alt="Tuxedo fitting and measurement at Mayller Bridal, Sinking Spring PA"
+                fill sizes="(max-width: 768px) 50vw, 33vw" quality={75} loading="lazy" className="object-cover"
+              />
+            </div>
+            <div className="relative aspect-square overflow-hidden bg-ivory-deep max-md:hidden">
+              <Image
+                src="/images/tuxedo-01-runway.webp"
+                alt="Groom tuxedo tailored by Mayller Bridal on the runway"
+                fill sizes="33vw" quality={75} loading="lazy" className="object-cover object-top"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="bg-nero py-20 text-center">
+          <h2 className="font-display text-[clamp(1.8rem,3.5vw,2.75rem)] font-medium text-ivory">
+            Bring us your gown
+          </h2>
+          <p className="mx-auto mt-4 max-w-md px-6 text-sm font-light text-ivory/70">
+            Bought your dress elsewhere? Welcome anyway. Alteration appointments take 30
+            minutes and book in seconds.
+          </p>
+          <Link
+            href="/#appointment"
+            className="mt-8 inline-block bg-ivory px-9 py-4 text-[11px] uppercase tracking-[0.24em] text-nero transition-colors hover:bg-champagne"
+          >
+            Book an Alteration
+          </Link>
+        </section>
+      </main>
+      <SiteFooter />
+      <MobileActionBar />
+    </>
   )
 }
