@@ -140,19 +140,21 @@ export function GalleryPreview() {
  */
 const REVIEWS = [
   {
+    quote:
+      'She picked out a dress that she thought would look nice on me and from the moment I put it on, I fell in love. Her attention to detail is amazing and my dress was perfectly made. I would highly recommend her to any bride.',
+    name: 'Rosa S.',
+    source: 'Google',
+  },
+  {
+    quote:
+      'Mayller listened to every request, made custom changes to my dress with such care, and made sure it fit like a dream. You can truly feel the quality of the materials, all directly from Italy.',
+    name: 'Dominique D.',
+    source: 'Google',
+  },
+  {
     quote: 'Good prices and really fast.',
     name: 'Neighbor in Wyomissing',
     source: 'Nextdoor',
-  },
-  {
-    quote: '[Recensione Google reale n.1 — incollare dal pannello GBP]',
-    name: '[Nome cliente 1]',
-    source: 'Google',
-  },
-  {
-    quote: '[Recensione Google reale n.2 — incollare dal pannello GBP]',
-    name: '[Nome cliente 2]',
-    source: 'Google',
   },
 ]
 
