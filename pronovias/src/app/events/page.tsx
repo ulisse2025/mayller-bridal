@@ -1,143 +1,98 @@
-'use client'
-
-import { useEffect, useState, useCallback } from 'react'
+import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
-import { AnimatedNavFramer } from '@/components/ui/navigation-menu'
+import { SiteHeader, MobileActionBar } from '@/components/site/site-header'
+import { SiteFooter } from '@/components/site/site-footer'
+import { EventsGallery } from '@/components/events/events-gallery'
 
-type Photo = { id: string; url: string; caption: string }
-
-const DEFAULTS: Photo[] = [
-  { id: 'd1', url: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=800&q=80', caption: 'Bridal Trunk Show' },
-  { id: 'd2', url: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?auto=format&fit=crop&w=800&q=80', caption: 'Champagne &amp; Lace Evening' },
-  { id: 'd3', url: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=80', caption: 'New Collection Preview' },
-  { id: 'd4', url: 'https://images.unsplash.com/photo-1529543544282-ea669407fca3?auto=format&fit=crop&w=800&q=80', caption: 'Private Bride &amp; Mother Tea' },
-  { id: 'd5', url: 'https://images.unsplash.com/photo-1505236858219-8359eb29e329?auto=format&fit=crop&w=800&q=80', caption: 'Wedding Wisdom Workshop' },
-  { id: 'd6', url: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=800&q=80', caption: 'Open Atelier Day' },
-]
+export const metadata: Metadata = {
+  title: 'Trunk Shows & Bridal Events',
+  description:
+    'Trunk shows, runway shows and private bridal events at Mayller Bridal Italian Style, Sinking Spring PA. See the gowns live and book your private appointment.',
+  alternates: { canonical: 'https://mayllerbridal.com/events' },
+}
 
 export default function EventsPage() {
-  const [photos, setPhotos] = useState<Photo[]>(DEFAULTS)
-  const [lightbox, setLightbox] = useState<Photo | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [adminPw, setAdminPw] = useState('')
-
-  useEffect(() => {
-    const pw = sessionStorage.getItem('mayller-admin-pw')
-    if (pw) { setIsAdmin(true); setAdminPw(pw) }
-    fetch('/api/admin/photos?section=events')
-      .then(r => r.json()).then(d => { if (d.photos?.length) setPhotos(d.photos) }).catch(() => {})
-  }, [])
-
-  const upload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return
-    setUploading(true)
-    const fd = new FormData()
-    fd.append('file', file); fd.append('section', 'events')
-    fd.append('caption', file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '))
-    const res = await fetch('/api/admin/upload', { method: 'POST', headers: { 'x-admin-password': adminPw }, body: fd })
-    const data = await res.json()
-    if (data.photo) setPhotos(p => [...p, data.photo])
-    setUploading(false); e.target.value = ''
-  }, [adminPw])
-
-  const remove = useCallback(async (id: string) => {
-    await fetch(`/api/admin/photos?section=events&id=${id}`, { method: 'DELETE', headers: { 'x-admin-password': adminPw } })
-    setPhotos(p => p.filter(x => x.id !== id))
-  }, [adminPw])
-
   return (
-    <div className="min-h-screen bg-black text-white">
-      <AnimatedNavFramer />
-
-      {/* Hero */}
-      <section className="h-[70vh] relative flex items-end pb-20 px-8 md:px-20 overflow-hidden">
-        <img src="https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=1600&q=90"
-          alt="Mayller Events" className="absolute inset-0 w-full h-full object-cover opacity-35" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-        <div className="relative z-10">
-          <p className="text-amber-300/50 text-xs tracking-[0.5em] uppercase mb-4">Mayller · Atelier Events</p>
-          <h1 className="text-[clamp(3rem,9vw,8rem)] font-light tracking-[0.08em] leading-none">EVENTS</h1>
-          <p className="mt-5 text-white/40 text-sm tracking-[0.25em] uppercase max-w-sm">
-            Trunk shows, private previews, and intimate evenings at our Sinking Spring boutique.
-          </p>
-        </div>
-      </section>
-
-      {/* Newsletter strip */}
-      <div className="bg-amber-400 py-5 px-8 md:px-20 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className="text-black text-xs font-semibold tracking-widest uppercase">
-          Want an invite? Get on our event list — call (484) 638-6555 or message us
-        </p>
-        <Link href="/contact" className="text-xs font-bold tracking-widest uppercase text-black border border-black px-6 py-2 hover:bg-black hover:text-amber-400 transition-colors whitespace-nowrap">
-          Contact Us
-        </Link>
-      </div>
-
-      {/* Intro */}
-      <section className="py-20 px-8 md:px-20 border-t border-white/10">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-amber-300/50 text-xs tracking-[0.4em] uppercase mb-5">What to Expect</p>
-          <h2 className="text-3xl font-light tracking-wide mb-6">Small gatherings. Big moments.</h2>
-          <p className="text-white/50 leading-relaxed">
-            We host intimate events throughout the year — designer trunk shows, private collection
-            previews, mother-and-bride teas, and quiet evenings where you can browse, sip, and try
-            on dresses without the rush. Most events are by invitation, but we always welcome new
-            faces. Reach out and we&apos;ll add you to the next one.
-          </p>
-        </div>
-      </section>
-
-      {/* Gallery */}
-      <section className="py-20 px-4 md:px-12 border-t border-white/10">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-end justify-between mb-12 px-4">
-            <div>
-              <p className="text-amber-300/40 text-xs tracking-[0.4em] uppercase mb-2">{photos.length} events</p>
-              <h2 className="text-3xl font-light tracking-[0.2em]">Past Events</h2>
+    <>
+      <SiteHeader />
+      <main className="bg-ivory pt-20">
+        {/* Hero */}
+        <section className="mx-auto grid max-w-7xl items-center gap-10 px-6 pb-20 pt-16 lg:grid-cols-2 lg:px-12 lg:pt-24">
+          <div>
+            <p className="eyebrow">The Atelier, Live</p>
+            <h1 className="font-display mt-4 text-[clamp(2.4rem,5vw,4rem)] font-medium leading-tight text-nero">
+              Trunk Shows &amp; Events
+            </h1>
+            <p className="mt-5 max-w-xl text-base font-light leading-relaxed text-taupe">
+              A few times a year, our gowns leave the boutique: runway shows, trunk shows
+              and private evenings where you can see the new Italian collections live —
+              and meet the hands that tailor them.
+            </p>
+            <div className="mt-9 flex flex-wrap gap-4">
+              <Link
+                href="/#appointment"
+                className="bg-nero px-8 py-4 text-[11px] uppercase tracking-[0.24em] text-ivory transition-colors hover:bg-champagne-dark"
+              >
+                Book a Private Showing
+              </Link>
+              <a
+                href="https://www.instagram.com/mayller_bridal_italianstyle/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border border-champagne px-8 py-4 text-[11px] uppercase tracking-[0.24em] text-nero transition-colors hover:bg-champagne/10"
+              >
+                Follow for Dates
+              </a>
             </div>
-            {isAdmin && (
-              <label className={`cursor-pointer flex items-center gap-2 px-5 py-2.5 border border-amber-400/40 text-amber-300/80 text-xs tracking-widest uppercase hover:bg-amber-400/10 transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
-                {uploading ? 'Uploading...' : 'Add Photo'}
-                <input type="file" accept="image/*" className="hidden" onChange={upload} />
-              </label>
-            )}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {photos.map((photo, i) => (
-              <div key={photo.id}
-                className={`group relative overflow-hidden cursor-pointer ${i === 0 ? 'md:col-span-2 md:row-span-2' : ''}`}
-                style={{ aspectRatio: i === 0 ? '16/9' : '4/3' }}
-                onClick={() => setLightbox(photo)}>
-                <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="absolute bottom-0 left-0 right-0 p-5">
-                    <p className="text-white text-sm font-light tracking-wider" dangerouslySetInnerHTML={{ __html: photo.caption }} />
-                    {isAdmin && <button onClick={e => { e.stopPropagation(); remove(photo.id) }} className="mt-1 text-red-400/80 text-xs hover:text-red-300">Remove</button>}
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="relative aspect-[4/3] overflow-hidden bg-ivory-deep">
+            <Image
+              src="/images/hero-02-runway.webp"
+              alt="Mayller Bridal runway show at the Folino Estate bridal event, Pennsylvania"
+              fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              quality={78}
+              priority
+              className="object-cover object-top"
+            />
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Lightbox */}
-      {lightbox && (
-        <div className="fixed inset-0 bg-black/96 z-[100] flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
-          <button className="absolute top-6 right-8 text-white/40 hover:text-white text-xs tracking-widest uppercase">Close ✕</button>
-          <img src={lightbox.url} alt={lightbox.caption} className="max-h-[88vh] max-w-[88vw] object-contain" />
-          <p className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/40 text-xs tracking-widest" dangerouslySetInnerHTML={{ __html: lightbox.caption }} />
-        </div>
-      )}
+        {/* Latest event recap */}
+        <section className="bg-ivory-deep">
+          <div className="mx-auto max-w-7xl px-6 py-20 lg:px-12">
+            <p className="eyebrow text-center">Latest Event</p>
+            <h2 className="font-display mt-4 text-center text-[clamp(1.8rem,3.5vw,2.75rem)] font-medium text-nero">
+              Folino Bridal Show — 2026
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-center text-sm font-light leading-relaxed text-taupe">
+              Our Italian collections on the runway at Folino Estate: Michela Ferriero,
+              Capri Sposa and Vela, worn live in front of hundreds of Pennsylvania brides.
+            </p>
+            <EventsGallery />
+          </div>
+        </section>
 
-      <footer className="border-t border-white/10 py-8 px-8 md:px-20 flex justify-between items-center">
-        <Link href="/" className="text-xs font-light tracking-[0.3em] text-white/30 hover:text-white transition-colors uppercase">Mayller</Link>
-        <p className="text-white/15 text-xs tracking-widest">Atelier Events · Sinking Spring, PA</p>
-        <Link href="/contact" className="text-xs tracking-widest uppercase text-amber-300/50 hover:text-amber-300 transition-colors">Contact →</Link>
-      </footer>
-    </div>
+        {/* CTA */}
+        <section className="bg-nero py-20 text-center">
+          <h2 className="font-display text-[clamp(1.8rem,3.5vw,2.75rem)] font-medium text-ivory">
+            Can&apos;t wait for the next show?
+          </h2>
+          <p className="mx-auto mt-4 max-w-md px-6 text-sm font-light text-ivory/70">
+            The boutique is a private runway every day. Book your appointment and see the
+            collection one-on-one.
+          </p>
+          <Link
+            href="/#appointment"
+            className="mt-8 inline-block bg-ivory px-9 py-4 text-[11px] uppercase tracking-[0.24em] text-nero transition-colors hover:bg-champagne"
+          >
+            Book Your Appointment
+          </Link>
+        </section>
+      </main>
+      <SiteFooter />
+      <MobileActionBar />
+    </>
   )
 }
