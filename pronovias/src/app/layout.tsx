@@ -106,8 +106,10 @@ const localBusinessJsonLd = {
     },
   ],
   sameAs: [
-    "https://www.instagram.com/mayllerbridal",
-    "https://www.facebook.com/mayllerbridal",
+    "https://www.instagram.com/mayller_bridal_italianstyle/",
+    "https://www.facebook.com/p/Mayller-Bridal-Italian-Style-100091294175941/",
+    "https://www.tiktok.com/@maylleritalianstyle",
+    "https://www.youtube.com/channel/UCrmwEBnV2avhQkGDu_NoAsw",
   ],
 }
 

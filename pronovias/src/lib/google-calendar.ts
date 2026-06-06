@@ -31,11 +31,13 @@ const TIMEZONE = 'America/New_York'
 const DURATION_MINUTES: Record<string, number> = {
     alteration: 30,
     wedding: 90,
+    tuxedo_fitting: 60,
 }
 
 const SERVICE_LABELS: Record<string, string> = {
     alteration: 'Alteration',
     wedding: 'Wedding Dress',
+    tuxedo_fitting: 'Tuxedo Fitting',
 }
 
 /**

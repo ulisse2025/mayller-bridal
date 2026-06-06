@@ -60,8 +60,8 @@ export default function AlterationPage() {
           </div>
           <div className="relative aspect-[4/3] overflow-hidden bg-ivory-deep">
             <Image
-              src="/images/detail-01-atelier.webp"
-              alt="Italian tailor working by hand on a wedding dress at Mayller Bridal atelier, Pennsylvania"
+              src="/images/detail-02-atelier.webp"
+              alt="Seamstress hand-finishing lace on a wedding dress at Mayller Bridal atelier, Pennsylvania"
               fill
               sizes="(max-width: 1024px) 100vw, 50vw"
               quality={78}
@@ -109,8 +109,8 @@ export default function AlterationPage() {
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:gap-6">
             <div className="relative aspect-square overflow-hidden bg-ivory-deep">
               <Image
-                src="/images/detail-02-atelier.webp"
-                alt="Hand-sewing details on an Italian wedding gown"
+                src="/images/detail-01-atelier.webp"
+                alt="Italian lace wedding gown by Mayller Bridal"
                 fill sizes="(max-width: 768px) 50vw, 33vw" quality={75} loading="lazy" className="object-cover"
               />
             </div>

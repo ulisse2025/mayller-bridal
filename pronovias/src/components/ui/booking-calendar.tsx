@@ -19,6 +19,12 @@ const SLOTS_BY_SERVICE: Record<string, { am: string[]; pm: string[] }> = {
     am: ['10:00 AM', '11:30 AM'],
     pm: ['2:00 PM', '3:30 PM'],
   },
+  // Tuxedo Fitting (60 min): starts every 30 minutes; last morning start 12:00 PM
+  // (ends 1:00 PM, respecting the lunch break), last afternoon start 5:00 PM (ends 6:00 PM).
+  tuxedo_fitting: {
+    am: ['10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM'],
+    pm: ['2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM', '5:00 PM'],
+  },
 }
 
 function getSlotsForService(service: string) {
@@ -42,7 +48,14 @@ function slotStartMinutes(s: string): number {
 const SERVICES = [
   { id: 'alteration', label: 'Alteration', sublabel: 'Expert tailoring session with our master seamstress', duration: '30 min' },
   { id: 'wedding', label: 'Wedding Dress', sublabel: 'Private consultation - find your perfect gown', duration: '90 min' },
+  { id: 'tuxedo_fitting', label: 'Tuxedo Fitting', sublabel: 'Groom & groomsmen - jacket, trousers, perfect fit', duration: '60 min' },
 ]
+
+const SLOT_FREQUENCY_TEXT: Record<string, string> = {
+  alteration: '30 minutes',
+  wedding: '90 minutes',
+  tuxedo_fitting: '60 minutes',
+}
 
 type Step = 'service' | 'datetime' | 'info' | 'done'
 
@@ -225,7 +238,7 @@ export function BookingCalendar() {
       {step === 'service' && (
         <div>
           <p className="text-xs tracking-[0.25em] uppercase text-white/40 text-center mb-8">Choose your appointment type</p>
-          <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
             {SERVICES.map((svc) => (
               <button key={svc.id} onClick={() => { setForm(f => ({ ...f, service: svc.id })); setStep('datetime') }} className={cn('relative p-8 border text-left transition-all duration-300 group', form.service === svc.id ? 'border-amber-400/70 bg-amber-400/5' : 'border-white/15 hover:border-white/40 bg-white/[0.02] hover:bg-white/[0.04]')}>
                 <div className="absolute top-4 right-4 w-5 h-5 rounded-full border border-amber-400/30 group-hover:border-amber-400/60 flex items-center justify-center transition-all">
@@ -268,7 +281,7 @@ export function BookingCalendar() {
 
           <div>
             <p className="text-xs tracking-[0.25em] uppercase text-white/40 mb-2">{form.date ? `Available times - ${formatSelectedDate(form.date)}` : 'Select a date first'}</p>
-            {form.service && (<p className="text-xs text-amber-300/40 mb-6 tracking-wider">{SERVICES.find(s => s.id === form.service)?.label} - slots every {form.service === 'alteration' ? '30 minutes' : '90 minutes'}{isSaturday ? ' · Saturday until 2:00 PM' : ''}</p>)}
+            {form.service && (<p className="text-xs text-amber-300/40 mb-6 tracking-wider">{SERVICES.find(s => s.id === form.service)?.label} - slots every {SLOT_FREQUENCY_TEXT[form.service] ?? '30 minutes'}{isSaturday ? ' · Saturday until 2:00 PM' : ''}</p>)}
             {form.date ? (
               loadingSlots ? (
                 <div className="h-48 flex items-center justify-center">
@@ -277,7 +290,7 @@ export function BookingCalendar() {
               ) : (
                 <>
                   <p className="text-xs text-white/30 tracking-wider mb-3">MORNING</p>
-                  <div className={cn('grid gap-2 mb-6', form.service === 'alteration' ? 'grid-cols-3' : 'grid-cols-2')}>
+                  <div className={cn('grid gap-2 mb-6', form.service === 'wedding' ? 'grid-cols-2' : 'grid-cols-3')}>
                     {amSlotsShown.map((t) => {
                       const booked = isBooked(t)
                       return (
@@ -288,7 +301,7 @@ export function BookingCalendar() {
                   {pmSlotsShown.length > 0 && (
                     <>
                       <p className="text-xs text-white/30 tracking-wider mb-3">AFTERNOON</p>
-                      <div className={cn('grid gap-2', form.service === 'alteration' ? 'grid-cols-4' : 'grid-cols-2')}>
+                      <div className={cn('grid gap-2', form.service === 'wedding' ? 'grid-cols-2' : 'grid-cols-4')}>
                         {pmSlotsShown.map((t) => {
                           const booked = isBooked(t)
                           return (
