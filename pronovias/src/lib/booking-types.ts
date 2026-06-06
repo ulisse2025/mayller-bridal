@@ -41,6 +41,21 @@ export const BUSINESS_HOURS = {
   slotIncrement: 30,
 } as const;
 
+// ── Seasonal lunch break (single source of truth) ─────────────
+// Summer (June 1 – August 31, every year): lunch 12:00 PM – 1:00 PM.
+//   → last starts: Alteration 11:30 AM, Tuxedo 11:00 AM, Wedding 10:30 AM;
+//     afternoon resumes at 1:00 PM.
+// Rest of the year: lunch 1:00 PM – 2:00 PM (historical schedule).
+// RULE: no appointment may OVERLAP the lunch break. Used by BOTH the
+// website booking form (booking-calendar.tsx) and Sofia (vapi-calendar.ts).
+export function getLunchBreak(date: string): { startMin: number; endMin: number } {
+  const month = parseInt(date.split('-')[1] ?? '0', 10); // 1-12
+  const isSummer = month >= 6 && month <= 8;
+  return isSummer
+    ? { startMin: 12 * 60, endMin: 13 * 60 }
+    : { startMin: 13 * 60, endMin: 14 * 60 };
+}
+
 export const STORE_ADDRESS = '4054 W Penn Ave, Sinking Spring, PA 19608';
 export const STORE_PHONE = '(484) 760-0475';
 export const STORE_NAME = 'Mayller Bridal Italian Style';
