@@ -1,154 +1,128 @@
-'use client'
-
-import { useState } from 'react'
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { AnimatedNavFramer } from '@/components/ui/navigation-menu'
+import { SiteHeader, MobileActionBar } from '@/components/site/site-header'
+import { SiteFooter } from '@/components/site/site-footer'
+import { ContactForm } from '@/components/contact/contact-form'
+
+export const metadata: Metadata = {
+  title: 'Visit Our Boutique — Sinking Spring, PA',
+  description:
+    'Mayller Bridal Italian Style: 4054 W Penn Ave, Sinking Spring PA 19608. Call (484) 638-6555, message us on WhatsApp or book your bridal appointment online.',
+  alternates: { canonical: 'https://mayllerbridal.com/contact' },
+}
 
 const HOURS = [
   { day: 'Monday – Friday', time: '10:00 AM – 6:00 PM' },
-  { day: 'Saturday', time: '10:00 AM – 2:00 PM' },
+  { day: 'Saturday', time: '10:00 AM – 6:00 PM (appointments start by 2 PM)' },
   { day: 'Sunday', time: 'Closed' },
 ]
 
-const MAPS_URL = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('4054 W Penn Ave Sinking Spring PA 19608')
+const MAPS_URL =
+  'https://www.google.com/maps/search/?api=1&query=' +
+  encodeURIComponent('Mayller Bridal Italian Style 4054 W Penn Ave Sinking Spring PA 19608')
+
+const MAPS_EMBED =
+  'https://www.google.com/maps?q=' +
+  encodeURIComponent('4054 W Penn Ave, Sinking Spring, PA 19608') +
+  '&output=embed'
 
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setStatus('sending')
-    try {
-      const res = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      setStatus(res.ok ? 'sent' : 'error')
-    } catch {
-      setStatus('error')
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-black text-white">
-      <AnimatedNavFramer />
+    <>
+      <SiteHeader />
+      <main className="bg-ivory pt-20">
+        <section className="mx-auto max-w-7xl px-6 pb-24 pt-16 lg:px-12 lg:pt-24">
+          <p className="eyebrow">Visit the Boutique</p>
+          <h1 className="font-display mt-4 text-[clamp(2.4rem,5vw,4rem)] font-medium leading-tight text-nero">
+            Contact &amp; Visit
+          </h1>
 
-      <section className="pt-40 pb-16 px-8 md:px-20 border-b border-white/10">
-        <p className="text-amber-300/50 text-xs tracking-[0.5em] uppercase mb-4">Get in Touch</p>
-        <h1 className="text-[clamp(3rem,7vw,6rem)] font-light tracking-[0.08em] leading-none">CONTACT</h1>
-        <p className="mt-6 text-white/40 text-sm max-w-xl leading-relaxed">
-          We&apos;d love to hear from you. Whether you&apos;re planning a wedding, exploring custom design, or simply curious about our atelier — write to us, call us, or stop by our boutique in Sinking Spring.
-        </p>
-      </section>
-
-      <section className="py-20 px-8 md:px-20">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-20">
-
-          <div>
-            <h2 className="text-xl font-light tracking-[0.2em] uppercase mb-8">Send a Message</h2>
-            {status === 'sent' ? (
-              <div className="border border-amber-400/30 bg-amber-400/5 p-8">
-                <p className="text-amber-300 text-sm tracking-wider mb-2">Thank you — your message is on its way.</p>
-                <p className="text-white/40 text-xs">We typically reply within one business day.</p>
-                <button onClick={() => { setForm({ name: '', email: '', subject: '', message: '' }); setStatus('idle') }} className="mt-6 text-xs tracking-widest uppercase text-white/30 hover:text-white transition-colors">
-                  Send another →
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={submit} className="space-y-5">
-                {[
-                  { key: 'name', label: 'Full Name *', type: 'text', placeholder: 'e.g. Emma Johnson' },
-                  { key: 'email', label: 'Email Address *', type: 'email', placeholder: 'e.g. emma@email.com' },
-                  { key: 'subject', label: 'Subject *', type: 'text', placeholder: 'e.g. Wedding dress consultation' },
-                ].map(({ key, label, type, placeholder }) => (
-                  <div key={key}>
-                    <label className="block text-xs tracking-[0.2em] uppercase text-white/30 mb-2">{label}</label>
-                    <input type={type} required value={form[key as keyof typeof form]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder} className="w-full bg-transparent border border-white/10 focus:border-amber-400/50 outline-none px-4 py-3 text-white/80 text-sm placeholder:text-white/15 transition-colors" />
-                  </div>
-                ))}
-                <div>
-                  <label className="block text-xs tracking-[0.2em] uppercase text-white/30 mb-2">Message *</label>
-                  <textarea required rows={5} value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} placeholder="Tell us a little about your wedding, the look you have in mind, or any questions for our team..." className="w-full bg-transparent border border-white/10 focus:border-amber-400/50 outline-none px-4 py-3 text-white/80 text-sm placeholder:text-white/15 transition-colors resize-none" />
-                </div>
-                {status === 'error' && (
-                  <p className="text-red-400 text-xs tracking-wider">Something went wrong. Please try again or call us directly.</p>
-                )}
-                <button type="submit" disabled={status === 'sending'} className="w-full py-4 bg-white text-black text-xs font-bold tracking-[0.3em] uppercase hover:bg-amber-300 transition-colors disabled:opacity-50">
-                  {status === 'sending' ? 'Sending...' : 'Send Message'}
-                </button>
-              </form>
-            )}
-          </div>
-
-          <div className="space-y-12">
+          <div className="mt-14 grid gap-14 lg:grid-cols-2">
+            {/* Info column */}
             <div>
-              <h3 className="text-xs tracking-[0.3em] uppercase text-white/30 mb-5">Visit Our Boutique</h3>
-              <p className="text-white/70 text-sm leading-relaxed">
-                Mayller Bridal Italian Style<br />
-                4054 W Penn Ave<br />
-                Sinking Spring, PA 19608<br />
-                United States
-              </p>
-              <a href={MAPS_URL} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-xs tracking-widest uppercase text-amber-300/60 hover:text-amber-300 transition-colors">Get Directions →</a>
-            </div>
+              <h2 className="text-[11px] uppercase tracking-[0.3em] text-champagne-dark">Boutique</h2>
+              <address className="mt-4 text-lg font-light not-italic leading-relaxed text-nero">
+                <a href={MAPS_URL} target="_blank" rel="noopener noreferrer" className="hover:text-champagne-dark">
+                  4054 W Penn Ave
+                  <br />
+                  Sinking Spring, PA 19608
+                </a>
+              </address>
 
-            <div>
-              <h3 className="text-xs tracking-[0.3em] uppercase text-white/30 mb-5">Contact</h3>
-              <div className="space-y-3 text-sm text-white/60">
-                <p>
-                  <span className="text-white/25 text-xs tracking-wider mr-3 inline-block w-12">Phone</span>
-                  <a href="tel:+14846386555" className="hover:text-amber-300 transition-colors">(484) 638-6555</a>
-                </p>
-                <p>
-                  <span className="text-white/25 text-xs tracking-wider mr-3 inline-block w-12">Email</span>
-                  <a href="mailto:mayllerbridalitalianstyle@gmail.com" className="hover:text-amber-300 transition-colors">mayllerbridalitalianstyle@gmail.com</a>
-                </p>
+              <h2 className="mt-10 text-[11px] uppercase tracking-[0.3em] text-champagne-dark">Talk to us</h2>
+              <ul className="mt-4 space-y-3 text-lg font-light text-nero">
+                <li>
+                  <a href="tel:+14846386555" className="hover:text-champagne-dark">
+                    ☎ (484) 638-6555 — tap to call
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://wa.me/14846386555?text=Hi%20Mayller%20Bridal!%20I%27d%20like%20to%20book%20an%20appointment."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-champagne-dark"
+                  >
+                    WhatsApp — chat with us
+                  </a>
+                </li>
+                <li className="text-base text-taupe">
+                  Our phone is answered 24/7 — after hours, Sofia, our virtual concierge,
+                  can book, move or cancel appointments for you.
+                </li>
+              </ul>
+
+              <h2 className="mt-10 text-[11px] uppercase tracking-[0.3em] text-champagne-dark">Hours</h2>
+              <table className="mt-4 w-full max-w-md text-left text-base font-light text-nero">
+                <tbody>
+                  {HOURS.map((h) => (
+                    <tr key={h.day} className="border-b border-line">
+                      <td className="py-3 pr-6">{h.day}</td>
+                      <td className="py-3 text-taupe">{h.time}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="mt-10 flex flex-wrap gap-4">
+                <Link
+                  href="/#appointment"
+                  className="bg-nero px-8 py-4 text-[11px] uppercase tracking-[0.24em] text-ivory transition-colors hover:bg-champagne-dark"
+                >
+                  Book Appointment
+                </Link>
+                <a
+                  href={MAPS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="border border-champagne px-8 py-4 text-[11px] uppercase tracking-[0.24em] text-nero transition-colors hover:bg-champagne/10"
+                >
+                  Get Directions
+                </a>
               </div>
             </div>
 
+            {/* Map + form column */}
             <div>
-              <h3 className="text-xs tracking-[0.3em] uppercase text-white/30 mb-5">Boutique Hours</h3>
-              <div className="space-y-3">
-                {HOURS.map(h => (
-                  <div key={h.day} className="flex justify-between text-sm">
-                    <span className="text-white/40">{h.day}</span>
-                    <span className="text-white/70">{h.time}</span>
-                  </div>
-                ))}
+              <div className="aspect-[4/3] w-full overflow-hidden border border-line bg-ivory-deep">
+                <iframe
+                  src={MAPS_EMBED}
+                  title="Mayller Bridal Italian Style on Google Maps"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="h-full w-full border-0"
+                />
               </div>
-              <p className="mt-5 text-xs text-white/30 leading-relaxed">
-                Bridal consultations and fittings are by appointment. Walk-ins are welcome during regular hours for accessories and inquiries.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-xs tracking-[0.3em] uppercase text-white/30 mb-5">Follow Us</h3>
-              <div className="flex gap-5 text-sm">
-                <a href="https://www.instagram.com/mayller_bridal_italianstyle/" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-amber-300 transition-colors">Instagram</a>
-                <a href="https://www.facebook.com/p/Mayller-Bridal-Italian-Style-100091294175941/" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-amber-300 transition-colors">Facebook</a>
-                <a href="https://www.tiktok.com/@maylleritalianstyle" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-amber-300 transition-colors">TikTok</a>
-                <a href="https://www.youtube.com/channel/UCrmwEBnV2avhQkGDu_NoAsw" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-amber-300 transition-colors">YouTube</a>
+              <div className="mt-10">
+                <h2 className="text-[11px] uppercase tracking-[0.3em] text-champagne-dark">Write to us</h2>
+                <ContactForm />
               </div>
-            </div>
-
-            <div className="border-t border-white/10 pt-8">
-              <h3 className="text-xs tracking-[0.3em] uppercase text-white/30 mb-5">Book an Appointment</h3>
-              <p className="text-white/40 text-sm leading-relaxed mb-5">
-                For bridal consultations, custom design, and alterations, book your private appointment online — it only takes a minute.
-              </p>
-              <Link href="/#appointment" className="inline-block px-8 py-3 border border-amber-400/40 text-amber-300/80 text-xs tracking-widest uppercase hover:bg-amber-400/10 transition-colors">Book Now →</Link>
             </div>
           </div>
-        </div>
-      </section>
-
-      <footer className="border-t border-white/10 py-8 px-8 md:px-20 flex justify-between items-center">
-        <Link href="/" className="text-xs font-light tracking-[0.3em] text-white/30 hover:text-white transition-colors uppercase">Mayller</Link>
-        <p className="text-white/15 text-xs tracking-widest">Sinking Spring, PA · Italian Craftsmanship</p>
-        <Link href="/#appointment" className="text-xs tracking-widest uppercase text-amber-300/50 hover:text-amber-300 transition-colors">Book →</Link>
-      </footer>
-    </div>
+        </section>
+      </main>
+      <SiteFooter />
+      <MobileActionBar />
+    </>
   )
 }
