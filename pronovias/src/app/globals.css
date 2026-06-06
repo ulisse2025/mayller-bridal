@@ -2,25 +2,27 @@
 @import "./appointment-readability.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
+  --background: #faf8f4;
+  --foreground: #1c1814;
   --card: #ffffff;
-  --card-foreground: #0a0a0a;
+  --card-foreground: #1c1814;
   --popover: #ffffff;
-  --popover-foreground: #0a0a0a;
-  --primary: #0a0a0a;
-  --primary-foreground: #fafafa;
-  --secondary: #f5f5f4;
-  --secondary-foreground: #0a0a0a;
-  --muted: #f5f5f4;
-  --muted-foreground: #737373;
-  --accent: #f5f5f4;
-  --accent-foreground: #0a0a0a;
+  --popover-foreground: #1c1814;
+  --primary: #1c1814;
+  --primary-foreground: #faf8f4;
+  --secondary: #f2ede4;
+  --secondary-foreground: #1c1814;
+  --muted: #f2ede4;
+  --muted-foreground: #7c6f5f;
+  --accent: #f2ede4;
+  --accent-foreground: #1c1814;
   --destructive: #ef4444;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #0a0a0a;
+  --border: #e6dfd3;
+  --input: #e6dfd3;
+  --ring: #c6a87c;
   --radius: 0rem;
+  /* Alias per componenti legacy che referenziano il vecchio font Geist */
+  --font-geist-sans: var(--font-jost);
 }
 
 @theme inline {
@@ -42,8 +44,20 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  /* MAYLLER design tokens — Redesign 2026 */
+  --color-ivory: #faf8f4;
+  --color-ivory-deep: #f2ede4;
+  --color-nero: #1c1814;
+  --color-nero-soft: #2b241d;
+  --color-champagne: #c6a87c;
+  --color-champagne-dark: #a8895c;
+  --color-taupe: #7c6f5f;
+  --color-line: #e6dfd3;
+
+  --font-sans: var(--font-jost);
+  --font-serif: var(--font-cormorant);
+
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
@@ -57,7 +71,8 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans, 'Helvetica Neue', Helvetica, Arial, sans-serif);
+  font-family: var(--font-jost, 'Helvetica Neue', Helvetica, Arial, sans-serif);
+  font-weight: 300;
   margin: 0;
   overflow-x: hidden;
 }
@@ -66,23 +81,81 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Spotlight keyframe */
-@keyframes spotlight {
-  0% {
-    opacity: 0;
-    transform: translate(-72%, -62%) scale(0.5);
-  }
-  100% {
-    opacity: 1;
-    transform: translate(-50%, -40%) scale(1);
+/* ---------- MAYLLER utilities ---------- */
+
+.font-display {
+  font-family: var(--font-cormorant, Georgia, serif);
+}
+
+.eyebrow {
+  font-family: var(--font-jost, sans-serif);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--color-champagne-dark, #a8895c);
+}
+
+/* Hero Ken Burns (pure CSS, no JS) */
+@keyframes kenburns {
+  0% { opacity: 0; transform: scale(1); }
+  8% { opacity: 1; }
+  38% { opacity: 1; }
+  46% { opacity: 0; transform: scale(1.08); }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+
+.kb-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: kenburns 21s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.kb-slide:nth-child(1) { animation-delay: 0s; }
+.kb-slide:nth-child(2) { animation-delay: 7s; }
+.kb-slide:nth-child(3) { animation-delay: 14s; }
+
+/* Reveal on scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .kb-slide { animation: none; opacity: 0; }
+  .kb-slide:first-child { opacity: 1; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* Review carousel — CSS scroll snap */
+.snap-row {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.snap-row::-webkit-scrollbar { display: none; }
+.snap-row > * { scroll-snap-align: center; flex-shrink: 0; }
+
+/* Su mobile la bolla WhatsApp sale sopra la MobileActionBar (52px + safe area) */
+@media (max-width: 767px) {
+  a[aria-label="Chat with Mayller Bridal on WhatsApp"][style] {
+    bottom: 92px !important;
   }
 }
 
-.animate-spotlight {
-  animation: spotlight 2s ease 0.75s 1 forwards;
-}
-
-/* Pulse animation */
+/* Pulse animation (WhatsApp button) */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
