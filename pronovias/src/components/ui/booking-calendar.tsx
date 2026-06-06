@@ -2,33 +2,46 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { cn } from '@/lib/utils'
+import { getLunchBreak } from '@/lib/booking-types'
 
 const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const DAYS_EN = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 
-// Service-aware time slots
-// Alteration (30 min): one slot every 30 minutes
-// Wedding (90 min): one slot every 90 minutes (no overlap)
-// Lunch break: 1:00 PM - 2:00 PM
-const SLOTS_BY_SERVICE: Record<string, { am: string[]; pm: string[] }> = {
-  alteration: {
-    am: ['10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM'],
-    pm: ['2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM', '5:00 PM', '5:30 PM'],
-  },
-  wedding: {
-    am: ['10:00 AM', '11:30 AM'],
-    pm: ['2:00 PM', '3:30 PM'],
-  },
-  // Tuxedo Fitting (60 min): starts every 30 minutes; last morning start 12:00 PM
-  // (ends 1:00 PM, respecting the lunch break), last afternoon start 5:00 PM (ends 6:00 PM).
-  tuxedo_fitting: {
-    am: ['10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM'],
-    pm: ['2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM', '5:00 PM'],
-  },
+// Service-aware time slots — generated from the SAME seasonal rule Sofia uses
+// (getLunchBreak in booking-types.ts): starts every 30 minutes within business
+// hours (10 AM – 6 PM), and no appointment may overlap the lunch break.
+// Summer (Jun–Aug): lunch 12:00–1:00 PM → last starts: Alteration 11:30,
+// Tuxedo 11:00, Wedding 10:30. Rest of the year: lunch 1:00–2:00 PM.
+const SERVICE_DURATION: Record<string, number> = {
+  alteration: 30,
+  wedding: 90,
+  tuxedo_fitting: 60,
 }
 
-function getSlotsForService(service: string) {
-  return SLOTS_BY_SERVICE[service] ?? SLOTS_BY_SERVICE.alteration
+const OPEN_MIN = 10 * 60 // 10:00 AM
+const CLOSE_MIN = 18 * 60 // 6:00 PM
+
+function formatSlotLabel(min: number): string {
+  let h = Math.floor(min / 60)
+  const m = min % 60
+  const ap = h >= 12 ? 'PM' : 'AM'
+  if (h > 12) h -= 12
+  if (h === 0) h = 12
+  return `${h}:${String(m).padStart(2, '0')} ${ap}`
+}
+
+function getSlotsForService(service: string, dateISO: string): { am: string[]; pm: string[] } {
+  const duration = SERVICE_DURATION[service] ?? 30
+  const lunch = dateISO ? getLunchBreak(dateISO) : { startMin: 13 * 60, endMin: 14 * 60 }
+  const am: string[] = []
+  const pm: string[] = []
+  for (let start = OPEN_MIN; start + duration <= CLOSE_MIN; start += 30) {
+    // No slot may overlap the lunch break.
+    if (start < lunch.endMin && start + duration > lunch.startMin) continue
+    if (start < lunch.startMin) am.push(formatSlotLabel(start))
+    else pm.push(formatSlotLabel(start))
+  }
+  return { am, pm }
 }
 
 // Saturday rule: bookings accepted only up to a 2:00 PM start, not beyond.
@@ -51,11 +64,6 @@ const SERVICES = [
   { id: 'tuxedo_fitting', label: 'Tuxedo Fitting', sublabel: 'Groom & groomsmen - jacket, trousers, perfect fit', duration: '60 min' },
 ]
 
-const SLOT_FREQUENCY_TEXT: Record<string, string> = {
-  alteration: '30 minutes',
-  wedding: '90 minutes',
-  tuxedo_fitting: '60 minutes',
-}
 
 type Step = 'service' | 'datetime' | 'info' | 'done'
 
@@ -104,7 +112,7 @@ export function BookingCalendar() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const { am: amSlots, pm: pmSlots } = useMemo(() => getSlotsForService(form.service), [form.service])
+  const { am: amSlots, pm: pmSlots } = useMemo(() => getSlotsForService(form.service, form.date), [form.service, form.date])
 
   // Saturday (day 6): show only slots that START at or before 2:00 PM.
   const isSaturday = useMemo(() => {
@@ -281,7 +289,7 @@ export function BookingCalendar() {
 
           <div>
             <p className="text-xs tracking-[0.25em] uppercase text-white/40 mb-2">{form.date ? `Available times - ${formatSelectedDate(form.date)}` : 'Select a date first'}</p>
-            {form.service && (<p className="text-xs text-amber-300/40 mb-6 tracking-wider">{SERVICES.find(s => s.id === form.service)?.label} - slots every {SLOT_FREQUENCY_TEXT[form.service] ?? '30 minutes'}{isSaturday ? ' · Saturday until 2:00 PM' : ''}</p>)}
+            {form.service && (<p className="text-xs text-amber-300/40 mb-6 tracking-wider">{SERVICES.find(s => s.id === form.service)?.label} - {SERVICE_DURATION[form.service] ?? 30} min appointment{isSaturday ? ' · Saturday until 2:00 PM' : ''}</p>)}
             {form.date ? (
               loadingSlots ? (
                 <div className="h-48 flex items-center justify-center">
@@ -290,7 +298,7 @@ export function BookingCalendar() {
               ) : (
                 <>
                   <p className="text-xs text-white/30 tracking-wider mb-3">MORNING</p>
-                  <div className={cn('grid gap-2 mb-6', form.service === 'wedding' ? 'grid-cols-2' : 'grid-cols-3')}>
+                  <div className="grid gap-2 mb-6 grid-cols-3">
                     {amSlotsShown.map((t) => {
                       const booked = isBooked(t)
                       return (
@@ -301,7 +309,7 @@ export function BookingCalendar() {
                   {pmSlotsShown.length > 0 && (
                     <>
                       <p className="text-xs text-white/30 tracking-wider mb-3">AFTERNOON</p>
-                      <div className={cn('grid gap-2', form.service === 'wedding' ? 'grid-cols-2' : 'grid-cols-4')}>
+                      <div className="grid gap-2 grid-cols-4">
                         {pmSlotsShown.map((t) => {
                           const booked = isBooked(t)
                           return (
