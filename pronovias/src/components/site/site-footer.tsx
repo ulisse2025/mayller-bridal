@@ -88,7 +88,7 @@ export function SiteFooter() {
         <div className="mt-14 flex flex-col items-start justify-between gap-6 border-t border-white/10 pt-8 md:flex-row md:items-center">
           <div className="flex gap-6 text-[11px] uppercase tracking-[0.2em]">
             <a
-              href="https://www.instagram.com/mayllerbridal"
+              href="https://www.instagram.com/mayller_bridal_italianstyle/"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-ivory"
@@ -97,13 +97,31 @@ export function SiteFooter() {
               Instagram
             </a>
             <a
-              href="https://www.facebook.com/mayllerbridal"
+              href="https://www.facebook.com/p/Mayller-Bridal-Italian-Style-100091294175941/"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-ivory"
               aria-label="Mayller Bridal on Facebook"
             >
               Facebook
+            </a>
+            <a
+              href="https://www.tiktok.com/@maylleritalianstyle"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-ivory"
+              aria-label="Mayller Bridal on TikTok"
+            >
+              TikTok
+            </a>
+            <a
+              href="https://www.youtube.com/channel/UCrmwEBnV2avhQkGDu_NoAsw"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-ivory"
+              aria-label="Mayller Bridal on YouTube"
+            >
+              YouTube
             </a>
             <a
               href="https://wa.me/14846386555"
