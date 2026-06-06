@@ -26,6 +26,17 @@ import type { BookingResult } from '@/lib/booking-types'
 
 export const runtime = 'nodejs'
 
+/**
+ * Fase 3 (June 2026): maps the web form service id to display label,
+ * Sofia-compatible appointmentType and duration, so the form can offer
+ * Tuxedo Fitting (60 min) alongside Wedding / Alteration.
+ */
+const SERVICE_MAP: Record<string, { label: string; appointmentType: 'wedding_consultation' | 'alteration' | 'tuxedo_fitting'; duration: number }> = {
+  wedding: { label: 'Wedding Dress', appointmentType: 'wedding_consultation', duration: 90 },
+  alteration: { label: 'Alteration', appointmentType: 'alteration', duration: 30 },
+  tuxedo_fitting: { label: 'Tuxedo Fitting', appointmentType: 'tuxedo_fitting', duration: 60 },
+}
+
 const MONTHS_EN = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -172,7 +183,11 @@ export async function POST(req: NextRequest) {
     if (!service || !date || !time || !name || !email || !phone) {
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
     }
-    const serviceLabel = service === 'wedding' ? 'Wedding Dress' : 'Alteration'
+    const svc = SERVICE_MAP[service]
+    if (!svc) {
+      return NextResponse.json({ error: 'Unknown service.' }, { status: 400 })
+    }
+    const serviceLabel = svc.label
 
     // 2. REALTIME freebusy double-check (covers race with Sofia)
     try {
@@ -280,9 +295,9 @@ export async function POST(req: NextRequest) {
           customerEmail: email,
           date,
           time,
-          appointmentType: service === 'wedding' ? 'wedding_consultation' : 'alteration',
+          appointmentType: svc.appointmentType,
           label: serviceLabel,
-          duration: service === 'wedding' ? 90 : 30,
+          duration: svc.duration,
         } as BookingResult)
         smsSent = true
       } catch (smsErr) {
