@@ -384,6 +384,9 @@ export function BookingCalendar() {
                 <a href="/terms" className="text-amber-300/70 underline">Terms</a>.
               </span>
             </label>
+            <p className="text-[11px] text-white/30 leading-relaxed">
+              Optional - SMS consent is not required to book. If unchecked, you will receive your confirmation by email only.
+            </p>
           </div>
           {error && (<div className="mt-4 border border-red-400/30 bg-red-400/5 px-4 py-3 text-red-300 text-sm">{error}</div>)}
         </div>
@@ -396,7 +399,7 @@ export function BookingCalendar() {
             <button onClick={() => setStep('info')} disabled={!form.date || !form.time} className={cn('px-10 py-3 text-xs tracking-[0.25em] uppercase transition-all', form.date && form.time ? 'bg-white text-black hover:bg-white/90' : 'border border-white/15 text-white/20 cursor-not-allowed')}>Continue →</button>
           )}
           {step === 'info' && (
-            <button onClick={handleSubmit} disabled={loading || !form.name || !form.email || !form.phone || !form.smsConsent} className={cn('px-10 py-3 text-xs tracking-[0.25em] uppercase transition-all flex items-center gap-3', form.name && form.email && form.phone && form.smsConsent ? 'bg-amber-400 text-black hover:bg-amber-300' : 'border border-white/15 text-white/20 cursor-not-allowed')}>
+            <button onClick={handleSubmit} disabled={loading || !form.name || !form.email || !form.phone} className={cn('px-10 py-3 text-xs tracking-[0.25em] uppercase transition-all flex items-center gap-3', form.name && form.email && form.phone ? 'bg-amber-400 text-black hover:bg-amber-300' : 'border border-white/15 text-white/20 cursor-not-allowed')}>
               {loading && (<svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>)}
               {loading ? 'Submitting...' : 'Confirm Booking'}
             </button>
