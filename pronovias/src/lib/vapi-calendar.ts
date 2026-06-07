@@ -15,6 +15,7 @@ import {
   BookingResult,
   parseTime,
   formatTime,
+  getLunchBreak,
   STORE_NAME,
   STORE_PHONE,
   STORE_ADDRESS,
@@ -151,8 +152,16 @@ export async function getAvailableSlots(
   const endMin = BUSINESS_HOURS.end * 60;
   // Saturday (day 6): accept bookings only up to a 2:00 PM start, not beyond.
   const lastStartMin = dayOfWeek === 6 ? 14 * 60 : endMin - config.duration;
+  // Lunch break (seasonal — single source of truth in booking-types.ts):
+  // no slot may overlap it.
+  const lunch = getLunchBreak(date);
 
   while (currentMin <= lastStartMin && currentMin + config.duration <= endMin) {
+    // Skip slots that overlap the lunch break.
+    if (currentMin < lunch.endMin && currentMin + config.duration > lunch.startMin) {
+      currentMin += BUSINESS_HOURS.slotIncrement;
+      continue;
+    }
     const slotHour = Math.floor(currentMin / 60);
     const slotMinute = currentMin % 60;
 
@@ -632,6 +641,14 @@ export async function rescheduleBookingById(
     const [ry, rm, rd] = newDate.split('-').map(Number);
     const newDow = new Date(ry, rm - 1, rd).getDay();
     if (newDow === 6 && (parsed.hours * 60 + parsed.minutes) > 14 * 60) {
+      return { success: false, reason: 'invalid-time' };
+    }
+  }
+  // Lunch break (seasonal): the new slot must not overlap it.
+  {
+    const lunch = getLunchBreak(newDate);
+    const newStartMin = parsed.hours * 60 + parsed.minutes;
+    if (newStartMin < lunch.endMin && newStartMin + config.duration > lunch.startMin) {
       return { success: false, reason: 'invalid-time' };
     }
   }
