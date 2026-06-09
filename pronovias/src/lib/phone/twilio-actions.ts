@@ -2,15 +2,17 @@
 // MAYLLER PHONE — Twilio write actions (server only)
 // pronovias/src/lib/phone/twilio-actions.ts
 //
-// Phase 2: send an SMS reply (from the toll-free number) and
-// start a click-to-call bridge. Kept SEPARATE from the read-only
-// twilio.ts so the "actions that change things" live in one place.
+// Phase 2: send an SMS reply and start a click-to-call bridge.
+// Kept SEPARATE from the read-only twilio.ts.
 //
-// Click-to-call flow (keeps the agent's personal number private):
-//   1. Twilio rings PHONE_AGENT_NUMBER (the agent's cell).
-//   2. When the agent answers, Twilio dials the customer with the
-//      STORE number as caller ID, so the customer never sees the
-//      agent's personal number.
+// SMS reply: sends via the Messaging Service (same path that
+// already delivers the booking confirmations) when
+// TWILIO_MESSAGING_SERVICE_SID is set; otherwise falls back to a
+// From number (TWILIO_TOLLFREE_NUMBER, then TWILIO_PHONE_NUMBER).
+//
+// Click-to-call: rings PHONE_AGENT_NUMBER (the agent's cell), then
+// dials the customer with the STORE number as caller ID, so the
+// customer never sees the agent's personal number.
 // ============================================================
 
 const API_BASE = 'https://api.twilio.com/2010-04-01';
@@ -71,25 +73,32 @@ export interface TwilioResult {
   status: string | null;
 }
 
-/** Send an SMS FROM the toll-free number (bypasses the pending A2P campaign). */
+/**
+ * Send an SMS reply. Prefers the Messaging Service (the path that already
+ * delivers the booking confirmations); falls back to a direct From number.
+ */
 export async function sendTollFreeSms(to: string, body: string): Promise<TwilioResult> {
   const creds = getCreds();
-  const from = process.env.TWILIO_TOLLFREE_NUMBER;
-  if (!from) throw new Error('TWILIO_TOLLFREE_NUMBER is not configured');
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+  const from = process.env.TWILIO_TOLLFREE_NUMBER || process.env.TWILIO_PHONE_NUMBER;
 
-  const json = await twilioPost(creds, 'Messages.json', {
-    To: toE164(to),
-    From: from,
-    Body: body,
-  });
+  const params: Record<string, string> = { To: toE164(to), Body: body };
+  if (messagingServiceSid) {
+    params.MessagingServiceSid = messagingServiceSid;
+  } else if (from) {
+    params.From = from;
+  } else {
+    throw new Error('No SMS sender configured (TWILIO_MESSAGING_SERVICE_SID or TWILIO_TOLLFREE_NUMBER)');
+  }
+
+  const json = await twilioPost(creds, 'Messages.json', params);
   return { sid: (json.sid as string) ?? null, status: (json.status as string) ?? null };
 }
 
 /**
  * Start a two-leg bridge: ring the agent, then connect to the customer
  * with the store number as caller ID. Caller ID defaults to the store
- * number (TWILIO_PHONE_NUMBER); override with PHONE_CALLER_ID if needed
- * (e.g. fall back to the toll-free number until the 484 finishes porting).
+ * number (TWILIO_PHONE_NUMBER); override with PHONE_CALLER_ID.
  */
 export async function createBridgeCall(customer: string): Promise<TwilioResult> {
   const creds = getCreds();
