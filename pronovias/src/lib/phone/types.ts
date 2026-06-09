@@ -57,3 +57,18 @@ export interface ApiError {
   error: string;
   code?: string;
 }
+
+// --- Phase 2: actions (reply + click-to-call) ---
+
+export interface ReplyResponse {
+  ok: true;
+  sid: string | null;
+  status: string | null;
+  stored: boolean; // whether the reply was also saved to Postgres
+}
+
+export interface CallResponse {
+  ok: true;
+  sid: string | null;
+  status: string | null;
+}
