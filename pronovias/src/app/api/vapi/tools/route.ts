@@ -195,7 +195,10 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
   }
 }
 
-async function handleCreateBooking(args: Record<string, string>): Promise<string> {
+async function handleCreateBooking(
+  args: Record<string, string>,
+  callerPhone: string | null = null,
+): Promise<string> {
   console.log('[create_booking] args received:', JSON.stringify(args));
 
   const { customer_name, customer_phone, customer_email, time, appointment_type, notes } = args;
@@ -209,6 +212,26 @@ async function handleCreateBooking(args: Record<string, string>): Promise<string
   if (!time) missing.push('the time');
   if (missing.length > 0) {
     return `Before I confirm the booking, I still need: ${missing.join(', ')}. Could you provide that? (Today is ${todayET()})`;
+  }
+
+  // -- Phone number plausibility guard ------------------------
+  // Defends against voice mis-capture where trailing digits get dropped or
+  // replaced (e.g. a real number arriving as "...0000"). Blocks the booking
+  // and re-asks instead of saving an unreachable number. A number that ends
+  // in 0000 is allowed only if it matches the caller's own inbound number.
+  const phoneDigits = (customer_phone || '').replace(/\D/g, '');
+  const phoneLast10 = phoneDigits.length === 11 && phoneDigits.startsWith('1')
+    ? phoneDigits.slice(1)
+    : phoneDigits;
+  const callerLast10 = (callerPhone || '').replace(/\D/g, '').slice(-10);
+  const matchesCallerId = phoneLast10.length === 10 && phoneLast10 === callerLast10;
+  const phoneSuspicious =
+    phoneLast10.length !== 10 ||                          // not a complete US 10-digit number
+    /^(\d)\1{9}$/.test(phoneLast10) ||                    // all identical digits
+    (phoneLast10.endsWith('0000') && !matchesCallerId);  // placeholder ending, not the caller's own number
+  if (phoneSuspicious) {
+    console.warn('[create_booking] Suspicious phone number, refusing to book:', JSON.stringify(customer_phone), 'normalized:', phoneLast10);
+    return `I want to make sure your confirmation reaches you. Could you give me your phone number again, slowly, one digit at a time?`;
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -673,7 +696,7 @@ export async function POST(req: NextRequest) {
             result = await handleCheckAvailability(args);
             break;
           case 'create_booking':
-            result = await handleCreateBooking(args);
+            result = await handleCreateBooking(args, callerPhone);
             break;
           case 'search_booking':
             result = await handleSearchBooking(args, callerPhone);
