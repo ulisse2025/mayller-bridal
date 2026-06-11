@@ -4,6 +4,7 @@
 //
 // Phase 1: bottom tab bar, card lists, ET timestamps, paging.
 // Phase 2: click-to-call + SMS reply live inside the cards.
+// Phase 3: compose a NEW SMS to any number (NewSmsComposer).
 // All requests carry the x-admin-password header.
 // ============================================================
 
@@ -11,7 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CallRecord, Paged, SmsRecord, SofiaCall, SofiaResponse } from '@/lib/phone/types';
-import { authedGet } from './api';
+import { authedGet, authedPost } from './api';
 import { CallCard, Empty, ErrorBox, ListHeader, LoadMore, SmsCard, SofiaCard } from './cards';
 
 type Tab = 'calls' | 'sofia' | 'sms';
@@ -123,11 +124,76 @@ function CallsView({ password }: { password: string }) {
   );
 }
 
+// -- Phase 3: compose a brand-new SMS to any number ----------
+// Reuses the existing send endpoint (/api/admin/phone/reply),
+// which sends via the A2P Messaging Service when
+// TWILIO_MESSAGING_SERVICE_SID is configured.
+function NewSmsComposer({ password, onSent }: { password: string; onSent: () => void }) {
+  const [to, setTo] = useState('');
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const canSend = to.replace(/\D/g, '').length >= 10 && body.trim().length > 0 && !sending;
+
+  const send = useCallback(async () => {
+    if (!canSend) return;
+    setSending(true);
+    setResult(null);
+    try {
+      await authedPost('/api/admin/phone/reply', password, { to: to.trim(), body: body.trim() });
+      setResult({ ok: true, msg: 'Message sent.' });
+      setBody('');
+      onSent();
+    } catch (e) {
+      setResult({ ok: false, msg: e instanceof Error ? e.message : 'Send failed' });
+    } finally {
+      setSending(false);
+    }
+  }, [canSend, to, body, password, onSent]);
+
+  return (
+    <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 space-y-2.5">
+      <span className="text-xs tracking-widest uppercase text-amber-300">Send a new message</span>
+      <input
+        type="tel"
+        inputMode="tel"
+        value={to}
+        onChange={(e) => setTo(e.target.value)}
+        placeholder="To (e.g. 484 638 3213)"
+        className="w-full rounded-md bg-black/40 border border-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400/50"
+      />
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder="Message"
+        rows={3}
+        className="w-full rounded-md bg-black/40 border border-white/10 px-3 py-2 text-sm text-white placeholder-white/30 resize-none focus:outline-none focus:border-amber-400/50"
+      />
+      <div className="flex items-center justify-between gap-3">
+        <span className={`text-xs ${result ? (result.ok ? 'text-emerald-400' : 'text-rose-400') : 'text-white/30'}`}>
+          {result ? result.msg : 'Sends from the boutique number'}
+        </span>
+        <button
+          onClick={send}
+          disabled={!canSend}
+          className={`shrink-0 rounded-md px-4 py-2 text-xs tracking-widest uppercase transition-colors ${
+            canSend ? 'bg-amber-400 text-black hover:bg-amber-300' : 'bg-white/10 text-white/30'
+          }`}
+        >
+          {sending ? 'Sending...' : 'Send'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SmsView({ password }: { password: string }) {
   const { items, hasMore, loading, error, loadMore, refresh } = usePaged<SmsRecord>('/api/admin/phone/sms', password);
   return (
     <div>
       <ListHeader title="SMS" count={items.length} onRefresh={refresh} loading={loading && items.length === 0} />
+      <NewSmsComposer password={password} onSent={refresh} />
       {error && <ErrorBox msg={error} />}
       {!error && items.length === 0 && !loading && <Empty msg="No messages yet." />}
       <div className="space-y-2.5">
