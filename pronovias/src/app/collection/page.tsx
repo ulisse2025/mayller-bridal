@@ -7,7 +7,7 @@ import { CollectionGallery } from '@/components/collection/collection-gallery'
 export const metadata: Metadata = {
   title: 'Wedding Dresses in Pennsylvania',
   description:
-    'Designer wedding dresses by Michela Ferriero, Capri Sposa and Vela. Try them on at Mayller Bridal, the Italian bridal boutique near Reading, PA. Book your appointment.',
+    'Wedding dresses designed in Italy and handcrafted by Mayller in our Pennsylvania atelier. Try them on at Mayller Bridal, the Italian bridal boutique near Reading, PA. Book your appointment.',
   alternates: { canonical: 'https://mayllerbridal.com/collection' },
 }
 
@@ -22,8 +22,8 @@ export default function CollectionPage() {
             Wedding Dresses
           </h1>
           <p className="mt-5 max-w-2xl text-base font-light leading-relaxed text-taupe">
-            Designer gowns from Michela Ferriero, Capri Sposa and Vela — selected in Italy,
-            fitted by our master tailors in Pennsylvania. Every gown is presented in a
+            Every gown is a Mayller original — designed in Italy and handcrafted by our
+            master tailors in our Pennsylvania atelier. Each one is presented in a
             private appointment, one bride at a time.
           </p>
         </section>

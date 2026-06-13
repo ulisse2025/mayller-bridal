@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     template: "%s · MAYLLER",
   },
   description:
-    "Luxury Italian wedding dresses, master alterations and custom bridal design in Sinking Spring, Pennsylvania. Michela Ferriero, Capri Sposa, Vela. Book your private appointment.",
+    "Luxury wedding dresses designed in Italy and handcrafted by Mayller in our Pennsylvania atelier. Master alterations and custom bridal design in Sinking Spring, PA. Book your private appointment.",
   applicationName: "MAYLLER",
   appleWebApp: {
     capable: true,
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "MAYLLER — Italian Bridal Boutique in Pennsylvania",
     description:
-      "Luxury Italian bridal experience in Sinking Spring, PA. Designer wedding dresses, master alterations and one-on-one fittings — by appointment.",
+      "Luxury Italian bridal experience in Sinking Spring, PA. Wedding dresses of our own design and production, master alterations and one-on-one fittings — by appointment.",
     url: "https://mayllerbridal.com",
     siteName: "MAYLLER Bridal Italian Style",
     locale: "en_US",
@@ -79,7 +79,7 @@ const localBusinessJsonLd = {
   name: "Mayller Bridal Italian Style",
   alternateName: "MAYLLER",
   description:
-    "Luxury Italian bridal boutique in Sinking Spring, Pennsylvania. Designer wedding dresses, tuxedos, master alterations, custom design and accessories.",
+    "Luxury Italian bridal boutique in Sinking Spring, Pennsylvania. Wedding dresses designed in Italy and handcrafted by Mayller, tuxedos, master alterations, custom design and accessories.",
   url: "https://mayllerbridal.com",
   telephone: "+14846386555",
   image: "https://mayllerbridal.com/og-image.jpg",
@@ -94,8 +94,8 @@ const localBusinessJsonLd = {
   },
   geo: {
     "@type": "GeoCoordinates",
-    latitude: 40.3267,
-    longitude: -76.0496,
+    latitude: 40.3252,
+    longitude: -76.0255,
   },
   openingHoursSpecification: [
     {

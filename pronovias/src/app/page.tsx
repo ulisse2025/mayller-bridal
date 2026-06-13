@@ -14,7 +14,7 @@ import {
 export const metadata: Metadata = {
   title: 'MAYLLER — Italian Bridal Boutique in Pennsylvania',
   description:
-    'Luxury Italian wedding dresses, master alterations and custom bridal design in Sinking Spring, PA. Designers Michela Ferriero, Capri Sposa, Vela. Book your private appointment online.',
+    'Luxury wedding dresses designed in Italy and handcrafted by Mayller in Pennsylvania. Master alterations and custom bridal design in Sinking Spring, PA. Book your private appointment online.',
   alternates: { canonical: 'https://mayllerbridal.com' },
 }
 

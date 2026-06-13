@@ -40,8 +40,9 @@ export default function AboutPage() {
               </p>
               <p>
                 Today, in our Sinking Spring atelier, we dress brides from Reading,
-                Lancaster, Allentown, Philadelphia and beyond — with collections selected
-                in Italy and every stitch of tailoring done in house.
+                Lancaster, Allentown, Philadelphia and beyond — with gowns of our own
+                design, created in Italy and handcrafted here, with every stitch of
+                tailoring done in house.
               </p>
             </div>
           </div>

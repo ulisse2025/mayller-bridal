@@ -16,24 +16,25 @@ type Gown = {
 
 /**
  * Catalogo curato — foto reali in /public/images.
+ * Tutti gli abiti sono produzione Mayller (etichetta "Mayller Atelier").
  * Per aggiungere/correggere un abito basta modificare questa lista
- * (nome, designer e silhouette sono editoriali).
+ * (nome e silhouette sono editoriali).
  * Le foto caricate dal pannello /admin (sezione "collection") vengono
  * AGGIUNTE in coda automaticamente.
  */
 const GOWNS: Gown[] = [
-  { id: 'g01', url: '/images/gallery-01.webp', name: 'Aurora', designer: 'Michela Ferriero', silhouette: 'a-line' },
-  { id: 'g02', url: '/images/gallery-02.webp', name: 'Serena', designer: 'Capri Sposa', silhouette: 'mermaid' },
-  { id: 'g03', url: '/images/gallery-03.webp', name: 'Lucia', designer: 'Michela Ferriero', silhouette: 'a-line' },
-  { id: 'g04', url: '/images/gallery-04.webp', name: 'Bianca', designer: 'Vela', silhouette: 'ballgown' },
-  { id: 'g05', url: '/images/gallery-05.webp', name: 'Chiara', designer: 'Capri Sposa', silhouette: 'mermaid' },
-  { id: 'g06', url: '/images/gallery-06.webp', name: 'Vittoria', designer: 'Michela Ferriero', silhouette: 'a-line' },
-  { id: 'g07', url: '/images/gallery-07.webp', name: 'Elena', designer: 'Vela', silhouette: 'a-line' },
-  { id: 'g08', url: '/images/gallery-08.webp', name: 'Sofia', designer: 'Capri Sposa', silhouette: 'mermaid' },
-  { id: 'g09', url: '/images/gallery-09.webp', name: 'Giulia', designer: 'Michela Ferriero', silhouette: 'ballgown' },
-  { id: 'g10', url: '/images/gallery-10.webp', name: 'Alba', designer: 'Vela', silhouette: 'short' },
-  { id: 'g11', url: '/images/gallery-11.webp', name: 'Regina', designer: 'Michela Ferriero', silhouette: 'ballgown' },
-  { id: 'g12', url: '/images/gallery-12.webp', name: 'Stella', designer: 'Capri Sposa', silhouette: 'a-line' },
+  { id: 'g01', url: '/images/gallery-01.webp', name: 'Aurora', designer: 'Mayller Atelier', silhouette: 'a-line' },
+  { id: 'g02', url: '/images/gallery-02.webp', name: 'Serena', designer: 'Mayller Atelier', silhouette: 'mermaid' },
+  { id: 'g03', url: '/images/gallery-03.webp', name: 'Lucia', designer: 'Mayller Atelier', silhouette: 'a-line' },
+  { id: 'g04', url: '/images/gallery-04.webp', name: 'Bianca', designer: 'Mayller Atelier', silhouette: 'ballgown' },
+  { id: 'g05', url: '/images/gallery-05.webp', name: 'Chiara', designer: 'Mayller Atelier', silhouette: 'mermaid' },
+  { id: 'g06', url: '/images/gallery-06.webp', name: 'Vittoria', designer: 'Mayller Atelier', silhouette: 'a-line' },
+  { id: 'g07', url: '/images/gallery-07.webp', name: 'Elena', designer: 'Mayller Atelier', silhouette: 'a-line' },
+  { id: 'g08', url: '/images/gallery-08.webp', name: 'Sofia', designer: 'Mayller Atelier', silhouette: 'mermaid' },
+  { id: 'g09', url: '/images/gallery-09.webp', name: 'Giulia', designer: 'Mayller Atelier', silhouette: 'ballgown' },
+  { id: 'g10', url: '/images/gallery-10.webp', name: 'Alba', designer: 'Mayller Atelier', silhouette: 'short' },
+  { id: 'g11', url: '/images/gallery-11.webp', name: 'Regina', designer: 'Mayller Atelier', silhouette: 'ballgown' },
+  { id: 'g12', url: '/images/gallery-12.webp', name: 'Stella', designer: 'Mayller Atelier', silhouette: 'a-line' },
 ]
 
 const FILTERS: { value: Filter; label: string }[] = [
@@ -44,11 +45,8 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'short', label: 'Short & Civil' },
 ]
 
-const DESIGNERS = ['All Designers', 'Michela Ferriero', 'Capri Sposa', 'Vela']
-
 export function CollectionGallery() {
   const [silhouette, setSilhouette] = useState<Filter>('all')
-  const [designer, setDesigner] = useState('All Designers')
   const [extra, setExtra] = useState<Gown[]>([])
   const [lightbox, setLightbox] = useState<Gown | null>(null)
 
@@ -74,11 +72,9 @@ export function CollectionGallery() {
 
   const gowns = useMemo(() => {
     return [...GOWNS, ...extra].filter(
-      (g) =>
-        (silhouette === 'all' || g.silhouette === silhouette) &&
-        (designer === 'All Designers' || g.designer === designer),
+      (g) => silhouette === 'all' || g.silhouette === silhouette,
     )
-  }, [silhouette, designer, extra])
+  }, [silhouette, extra])
 
   return (
     <section className="mx-auto max-w-7xl px-6 pb-24 lg:px-12">
@@ -98,16 +94,6 @@ export function CollectionGallery() {
             {f.label}
           </button>
         ))}
-        <select
-          value={designer}
-          onChange={(e) => setDesigner(e.target.value)}
-          aria-label="Filter by designer"
-          className="ml-auto border border-line bg-white px-4 py-2.5 text-[10px] uppercase tracking-[0.2em] text-taupe"
-        >
-          {DESIGNERS.map((d) => (
-            <option key={d}>{d}</option>
-          ))}
-        </select>
       </div>
 
       {/* Grid */}
@@ -122,7 +108,7 @@ export function CollectionGallery() {
             >
               <Image
                 src={g.url}
-                alt={`${g.name} — ${g.silhouette} wedding dress by ${g.designer} at Mayller Bridal, Pennsylvania`}
+                alt={`${g.name} — ${g.silhouette} wedding dress designed and made by Mayller, Pennsylvania`}
                 fill
                 sizes="(max-width: 768px) 50vw, 33vw"
                 quality={75}
