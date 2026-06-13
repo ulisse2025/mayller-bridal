@@ -3,14 +3,14 @@ import Link from 'next/link'
 import { BookingCalendar } from '@/components/ui/booking-calendar'
 
 /* ------------------------------------------------------------------ */
-/* Brand bar                                                           */
+/* Brand bar — the Mayller promise                                     */
 /* ------------------------------------------------------------------ */
 
-const BRANDS = ['Michela Ferriero', 'Capri Sposa', 'Vela']
+const BRANDS = ['Designed in Italy', 'Handcrafted by Mayller', 'Fitted in Pennsylvania']
 
 export function BrandBar() {
   return (
-    <section aria-label="Our designers" className="border-b border-line bg-ivory">
+    <section aria-label="The Mayller promise" className="border-b border-line bg-ivory">
       <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-6 px-6 py-12 sm:flex-row lg:py-14">
         {BRANDS.map((brand) => (
           <span
@@ -43,8 +43,8 @@ const PILLARS = [
     text: 'Master tailors in-house. Every gown fitted to perfection.',
   },
   {
-    title: 'Exclusive Collections',
-    text: 'Michela Ferriero, Capri Sposa and Vela — designers you won’t find anywhere else in PA.',
+    title: 'Our Own Collection',
+    text: 'Every gown is a Mayller original — designed in Italy, handcrafted in our atelier. You won’t find it anywhere else.',
   },
   {
     title: 'Luxury Experience',
@@ -79,8 +79,8 @@ export function WhyMayller() {
 /* ------------------------------------------------------------------ */
 
 const GALLERY = [
-  { src: '/images/gallery-06.webp', alt: 'A-line lace wedding dress at Mayller Bridal, Pennsylvania', big: true },
-  { src: '/images/gallery-02.webp', alt: 'Strapless mermaid wedding dress, Italian design' },
+  { src: '/images/gallery-06.webp', alt: 'A-line lace wedding dress by Mayller Bridal, Pennsylvania', big: true },
+  { src: '/images/gallery-02.webp', alt: 'Strapless mermaid wedding dress, Italian design by Mayller' },
   { src: '/images/gallery-04.webp', alt: 'Romantic ballgown wedding dress with long train' },
   { src: '/images/gallery-08.webp', alt: 'Off-the-shoulder wedding dress at Pennsylvania bridal show' },
   { src: '/images/gallery-11.webp', alt: 'Princess ballgown wedding dress, Mayller Bridal collection' },
