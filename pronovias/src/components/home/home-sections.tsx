@@ -6,7 +6,7 @@ import { BookingCalendar } from '@/components/ui/booking-calendar'
 /* Brand bar — the Mayller promise                                     */
 /* ------------------------------------------------------------------ */
 
-const BRANDS = ['Designed in Italy', 'Handcrafted by Mayller', 'Fitted in Pennsylvania']
+const BRANDS = ['Designed by Mayller', 'Crafted in Italy', 'Tailored in Pennsylvania']
 
 export function BrandBar() {
   return (
@@ -44,7 +44,7 @@ const PILLARS = [
   },
   {
     title: 'Our Own Collection',
-    text: 'Every gown is a Mayller original — designed in Italy, handcrafted in our atelier. You won’t find it anywhere else.',
+    text: 'Every gown is a Mayller original — designed by us and crafted in Italy. You won’t find it anywhere else.',
   },
   {
     title: 'Luxury Experience',
