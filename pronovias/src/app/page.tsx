@@ -14,7 +14,7 @@ import {
 export const metadata: Metadata = {
   title: 'MAYLLER — Italian Bridal Boutique in Pennsylvania',
   description:
-    'Luxury wedding dresses designed in Italy and handcrafted by Mayller in Pennsylvania. Master alterations and custom bridal design in Sinking Spring, PA. Book your private appointment online.',
+    'Luxury wedding dresses designed by Mayller and crafted in Italy. Master alterations and custom bridal design in Sinking Spring, PA. Book your private appointment online.',
   alternates: { canonical: 'https://mayllerbridal.com' },
 }
 

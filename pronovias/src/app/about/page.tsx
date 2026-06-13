@@ -7,7 +7,7 @@ import { SiteFooter } from '@/components/site/site-footer'
 export const metadata: Metadata = {
   title: 'Our Italian Story',
   description:
-    'The story of Mayller Bridal Italian Style: authentic Italian craftsmanship, three decades of tailoring, and a boutique in Sinking Spring, Pennsylvania built around one bride at a time.',
+    'The story of Mayller Bridal Italian Style: gowns designed by Mayller and crafted in Italy, three decades of tailoring, and a boutique in Sinking Spring, Pennsylvania built around one bride at a time.',
   alternates: { canonical: 'https://mayllerbridal.com/about' },
 }
 
@@ -41,8 +41,7 @@ export default function AboutPage() {
               <p>
                 Today, in our Sinking Spring atelier, we dress brides from Reading,
                 Lancaster, Allentown, Philadelphia and beyond — with gowns of our own
-                design, created in Italy and handcrafted here, with every stitch of
-                tailoring done in house.
+                design, crafted in Italy and then tailored to perfection here, by hand.
               </p>
             </div>
           </div>

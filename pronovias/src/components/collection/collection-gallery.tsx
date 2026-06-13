@@ -16,7 +16,8 @@ type Gown = {
 
 /**
  * Catalogo curato — foto reali in /public/images.
- * Tutti gli abiti sono produzione Mayller (etichetta "Mayller Atelier").
+ * Tutti gli abiti sono disegnati da Mayller e prodotti in Italia
+ * (etichetta "Mayller Atelier").
  * Per aggiungere/correggere un abito basta modificare questa lista
  * (nome e silhouette sono editoriali).
  * Le foto caricate dal pannello /admin (sezione "collection") vengono
@@ -108,7 +109,7 @@ export function CollectionGallery() {
             >
               <Image
                 src={g.url}
-                alt={`${g.name} — ${g.silhouette} wedding dress designed and made by Mayller, Pennsylvania`}
+                alt={`${g.name} — ${g.silhouette} wedding dress designed by Mayller, crafted in Italy`}
                 fill
                 sizes="(max-width: 768px) 50vw, 33vw"
                 quality={75}

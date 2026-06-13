@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     template: "%s · MAYLLER",
   },
   description:
-    "Luxury wedding dresses designed in Italy and handcrafted by Mayller in our Pennsylvania atelier. Master alterations and custom bridal design in Sinking Spring, PA. Book your private appointment.",
+    "Luxury wedding dresses designed by Mayller and crafted in Italy, with master alterations in our Sinking Spring, Pennsylvania atelier. Custom bridal design. Book your private appointment.",
   applicationName: "MAYLLER",
   appleWebApp: {
     capable: true,
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "MAYLLER — Italian Bridal Boutique in Pennsylvania",
     description:
-      "Luxury Italian bridal experience in Sinking Spring, PA. Wedding dresses of our own design and production, master alterations and one-on-one fittings — by appointment.",
+      "Luxury Italian bridal experience in Sinking Spring, PA. Wedding dresses designed by Mayller and crafted in Italy, master alterations and one-on-one fittings — by appointment.",
     url: "https://mayllerbridal.com",
     siteName: "MAYLLER Bridal Italian Style",
     locale: "en_US",
@@ -79,7 +79,7 @@ const localBusinessJsonLd = {
   name: "Mayller Bridal Italian Style",
   alternateName: "MAYLLER",
   description:
-    "Luxury Italian bridal boutique in Sinking Spring, Pennsylvania. Wedding dresses designed in Italy and handcrafted by Mayller, tuxedos, master alterations, custom design and accessories.",
+    "Luxury Italian bridal boutique in Sinking Spring, Pennsylvania. Wedding dresses designed by Mayller and crafted in Italy, tuxedos, master alterations, custom design and accessories.",
   url: "https://mayllerbridal.com",
   telephone: "+14846386555",
   image: "https://mayllerbridal.com/og-image.jpg",
