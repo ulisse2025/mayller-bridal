@@ -209,6 +209,7 @@ export async function POST(req: NextRequest) {
       bookingId = await reserveSlot(date, time, {
         service, name, email, phone, notes,
         source: 'web',
+        consent: smsConsent === true, // persist SMS consent for the 24h reminder cron
       })
     } catch (dbErr) {
       console.error('DB error reserving slot:', dbErr)

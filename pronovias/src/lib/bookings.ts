@@ -11,6 +11,18 @@
 
 import { sql } from '@vercel/postgres'
 
+// Self-migration guard (v4 — 24h SMS reminder). Ensures the reminder columns
+// exist before any INSERT references sms_consent. Runs at most once per warm
+// lambda instance, idempotent (IF NOT EXISTS). This removes the need to run the
+// migration by hand in the Neon/Postgres console.
+let reminderColumnsEnsured = false
+async function ensureReminderColumns(): Promise<void> {
+  if (reminderColumnsEnsured) return
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS sms_consent   BOOLEAN NOT NULL DEFAULT FALSE`
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN NOT NULL DEFAULT FALSE`
+  reminderColumnsEnsured = true
+}
+
 /**
  * Returns the list of times already booked on a given date.
  * Used by /api/bookings/availability.
@@ -57,20 +69,23 @@ export async function reserveSlot(
     source?: 'web' | 'voice' | 'manual'
     externalEventId?: string | null
     customerEmailSent?: boolean
+    consent?: boolean // SMS reminder consent -> sms_consent column
   },
 ): Promise<number | null> {
   try {
+    await ensureReminderColumns()
     const result = await sql<{ id: number }>`
       INSERT INTO bookings
         (slot_date, slot_time, service, customer_name, customer_email,
          customer_phone, notes, source, external_event_id, customer_email_sent,
-         created_at, updated_at)
+         sms_consent, created_at, updated_at)
       VALUES
         (${date}, ${time}, ${meta.service}, ${meta.name}, ${meta.email},
          ${meta.phone}, ${meta.notes ?? null},
          ${meta.source ?? 'web'},
          ${meta.externalEventId ?? null},
          ${meta.customerEmailSent ?? false},
+         ${meta.consent ?? false},
          NOW(), NOW())
       ON CONFLICT (slot_date, slot_time) DO NOTHING
       RETURNING id
