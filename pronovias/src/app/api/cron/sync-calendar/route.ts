@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { syncCalendarToPostgres } from '@/lib/calendar-mirror'
+import { sendDueReminders, type ReminderResult } from '@/lib/reminders'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -27,6 +28,19 @@ export async function GET(req: NextRequest) {
 
   console.log('[cron/sync-calendar]', { ms, ...result })
 
+  // 24h SMS reminders. Best-effort: a reminder failure must never break the
+  // calendar sync. This runs here (instead of a dedicated 3rd Vercel cron) so it
+  // works on any Vercel plan, including Hobby's 2-cron limit. This cron already
+  // fires daily at 13:00 UTC (~09:00 ET), the intended reminder time.
+  let reminders: ReminderResult | { error: string }
+  try {
+    reminders = await sendDueReminders()
+    console.log('[cron/sync-calendar] reminders', reminders)
+  } catch (err) {
+    console.error('[cron/sync-calendar] reminders failed (sync still OK):', err)
+    reminders = { error: 'reminders failed' }
+  }
+
   return NextResponse.json({
     ok: result.ok,
     durationMs: ms,
@@ -36,5 +50,6 @@ export async function GET(req: NextRequest) {
     cancelled: result.cancelled,
     emailsSent: result.emailsSent,
     errors: result.errors,
+    reminders,
   })
 }
