@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { getLunchBreak } from '@/lib/booking-types'
+import { getLunchBreak, isStoreClosed, STORE_CLOSURES } from '@/lib/booking-types'
 
 const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const DAYS_EN = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
@@ -78,11 +78,19 @@ interface BookingForm {
   smsConsent: boolean
 }
 
+function toISO(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 function isDateAvailable(date: Date): boolean {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const day = date.getDay()
-  return date >= today && day !== 0
+  if (date < today || day === 0) return false
+  // Store closed for vacation/holiday (single source of truth: STORE_CLOSURES
+  // in booking-types.ts) — these dates are greyed out and not selectable.
+  if (isStoreClosed(toISO(date))) return false
+  return true
 }
 
 function buildCalendarDays(year: number, month: number) {
@@ -130,6 +138,13 @@ export function BookingCalendar() {
     [isSaturday, pmSlots]
   )
   const allSlotsShown = useMemo(() => [...amSlotsShown, ...pmSlotsShown], [amSlotsShown, pmSlotsShown])
+
+  // Upcoming store closures (vacations) to show as a notice under the calendar.
+  const todayISO = toISO(today)
+  const upcomingClosures = useMemo(
+    () => STORE_CLOSURES.filter(c => c.to >= todayISO),
+    [todayISO]
+  )
 
   const days = useMemo(() => buildCalendarDays(calYear, calMonth), [calYear, calMonth])
   const canGoBack = calYear > today.getFullYear() || calMonth > today.getMonth()
@@ -285,6 +300,11 @@ export function BookingCalendar() {
               })}
             </div>
             <p className="text-white/20 text-xs mt-4">Open Monday-Saturday · Saturday until 2:00 PM</p>
+            {upcomingClosures.map((c) => (
+              <p key={c.from} className="text-amber-300/50 text-xs mt-1">
+                Closed for {c.reason.toLowerCase()}: {formatSelectedDate(c.from)} to {formatSelectedDate(c.to)}
+              </p>
+            ))}
           </div>
 
           <div>
