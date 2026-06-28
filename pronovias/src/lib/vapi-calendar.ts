@@ -16,6 +16,7 @@ import {
   parseTime,
   formatTime,
   getLunchBreak,
+  isStoreClosed,
   STORE_NAME,
   STORE_PHONE,
   STORE_ADDRESS,
@@ -128,6 +129,10 @@ export async function getAvailableSlots(
 
   // Validate: not in the past (compare date strings in NY timezone)
   if (date < todayInNY()) return [];
+
+  // Validate: store not closed for vacation/holiday (single source of truth
+  // in booking-types.ts — STORE_CLOSURES). No slots on a closed day.
+  if (isStoreClosed(date)) return [];
 
   // Build time window in Eastern Time (correctly converted to UTC)
   const timeMin = easternDate(date, BUSINESS_HOURS.start);
@@ -579,7 +584,7 @@ export async function rescheduleBookingById(
   newTime: string,
 ): Promise<{
   success: boolean;
-  reason?: 'not-found' | 'slot-busy' | 'invalid-time' | 'error';
+  reason?: 'not-found' | 'slot-busy' | 'invalid-time' | 'closed' | 'error';
   customerName?: string;
   customerPhone?: string;
   previousStart?: string;
@@ -635,6 +640,11 @@ export async function rescheduleBookingById(
   }
   if (parsed.hours < BUSINESS_HOURS.start || parsed.hours >= BUSINESS_HOURS.end) {
     return { success: false, reason: 'invalid-time' };
+  }
+  // Store closed for vacation/holiday on the new date? (single source of
+  // truth: STORE_CLOSURES in booking-types.ts).
+  if (isStoreClosed(newDate)) {
+    return { success: false, reason: 'closed' };
   }
   // Saturday (day 6): no appointment may start after 2:00 PM.
   {
