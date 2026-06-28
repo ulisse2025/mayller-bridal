@@ -20,6 +20,7 @@ import {
   BUSINESS_HOURS,
   normalizeAppointmentType,
   formatDate,
+  getStoreClosure,
   STORE_PHONE,
   STORE_ADDRESS,
 } from '@/lib/booking-types';
@@ -47,6 +48,18 @@ function todayET(): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/New_York',
   }).format(new Date());
+}
+
+/**
+ * Returns the day AFTER the given YYYY-MM-DD date, as YYYY-MM-DD.
+ * Used to tell the customer the reopen date after a closure. UTC math
+ * keeps it DST-proof since we only care about the calendar date.
+ */
+function nextDayISO(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + 1);
+  return dt.toISOString().slice(0, 10);
 }
 
 /**
@@ -167,6 +180,13 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
     const today = todayET();
 
     if (slots.length === 0) {
+      // Closed for vacation/holiday takes priority over the day-of-week message
+      // (a closure can fall on any day, including a Sunday).
+      const closure = getStoreClosure(normalizedDate);
+      if (closure) {
+        return `Today is ${today}. Our boutique is closed from ${formatDate(closure.from)} through ${formatDate(closure.to)} for our ${closure.reason.toLowerCase()}. We reopen on ${formatDate(nextDayISO(closure.to))}. Would you like to pick a date before or after our closure?`;
+      }
+
       const [year, month, day] = normalizedDate.split('-').map(Number);
       const dateObj = new Date(year, month - 1, day);
       const dow = dateObj.getDay();
@@ -240,6 +260,15 @@ async function handleCreateBooking(
 
   // Auto-correct year if AI sent 2025 instead of 2026
   date = correctYear(date);
+
+  // -- Store closed for vacation/holiday? ---------------------
+  // Backend guard: refuse to book inside a closure even if a slot somehow
+  // slipped through. Single source of truth: STORE_CLOSURES (booking-types.ts).
+  const closure = getStoreClosure(date);
+  if (closure) {
+    console.warn('[create_booking] Attempt to book inside a closure:', date, closure.reason);
+    return `I'm so sorry, but our boutique is closed from ${formatDate(closure.from)} through ${formatDate(closure.to)} for our ${closure.reason.toLowerCase()}. We reopen on ${formatDate(nextDayISO(closure.to))}. Would you like to choose a date before or after our closure?`;
+  }
 
   const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
   const config = APPOINTMENT_CONFIG[type];
@@ -513,6 +542,12 @@ async function handleRescheduleBooking(
           return `I could not find a booking with that code. Could you double-check the code in your confirmation email?`;
         case 'slot-busy':
           return `Unfortunately, ${newTime} on ${formatDate(newDate)} is not available. Would you like me to check what other times are open that day?`;
+        case 'closed': {
+          const cl = getStoreClosure(newDate);
+          return cl
+            ? `I'm so sorry, but our boutique is closed from ${formatDate(cl.from)} through ${formatDate(cl.to)} for our ${cl.reason.toLowerCase()}. We reopen on ${formatDate(nextDayISO(cl.to))}. Would you like to pick a date before or after our closure?`
+            : `I'm sorry, but we're closed on ${formatDate(newDate)}. Would you like to choose a different date?`;
+        }
         case 'invalid-time':
           return `That time is outside our business hours (10:00 AM to 6:00 PM Eastern, Monday through Saturday). What time within those hours works for you?`;
         default:
