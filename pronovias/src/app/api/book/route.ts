@@ -22,6 +22,7 @@ import nodemailer from 'nodemailer'
 import { createBookingEvent, isSlotBusyOnCalendar } from '@/lib/google-calendar'
 import { reserveSlot, releaseSlot, updateBookingExternalRef } from '@/lib/bookings'
 import { sendConfirmationSMS } from '@/lib/notifications'
+import { getStoreClosure } from '@/lib/booking-types'
 import type { BookingResult } from '@/lib/booking-types'
 
 export const runtime = 'nodejs'
@@ -188,6 +189,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unknown service.' }, { status: 400 })
     }
     const serviceLabel = svc.label
+
+    // 1b. Store closed for vacation/holiday? Reject before reserving a slot.
+    //     Single source of truth: STORE_CLOSURES in booking-types.ts.
+    //     Uses 400 (not 409) so the client surfaces this exact message instead
+    //     of the generic "slot just taken" copy reserved for 409.
+    const closure = getStoreClosure(date)
+    if (closure) {
+      return NextResponse.json(
+        { error: `Our boutique is closed for ${closure.reason.toLowerCase()} from ${formatDate(closure.from)} through ${formatDate(closure.to)}. Please choose a date outside that period.` },
+        { status: 400 },
+      )
+    }
 
     // 2. REALTIME freebusy double-check (covers race with Sofia)
     try {
