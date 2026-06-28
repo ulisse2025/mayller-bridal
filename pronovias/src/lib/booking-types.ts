@@ -56,6 +56,41 @@ export function getLunchBreak(date: string): { startMin: number; endMin: number 
     : { startMin: 13 * 60, endMin: 14 * 60 };
 }
 
+// ── Store closures (vacations / holidays) ─────────────────────
+// Reusable list of date ranges when the store is CLOSED — no bookings
+// accepted on the website OR via Sofia. Both endpoints (from/to) are
+// INCLUSIVE, expressed in ET (America/New_York), format YYYY-MM-DD.
+// To add a future closure, just append an entry to STORE_CLOSURES.
+// Used by the website booking form (booking-calendar.tsx + /api/book) and
+// by Sofia (vapi-calendar.ts + /api/vapi/tools) so both channels stay in sync.
+export interface StoreClosure {
+  from: string;   // YYYY-MM-DD inclusive (first closed day)
+  to: string;     // YYYY-MM-DD inclusive (last closed day)
+  reason: string; // human-readable (logs / customer message / future UI)
+}
+
+export const STORE_CLOSURES: StoreClosure[] = [
+  // Summer vacation 2026 — closed Jul 21 through Jul 31 inclusive; reopen Aug 1.
+  { from: '2026-07-21', to: '2026-07-31', reason: 'Summer vacation' },
+];
+
+/**
+ * If the given date (YYYY-MM-DD, ET) falls inside a closed range, returns
+ * the matching StoreClosure; otherwise null. Plain string comparison is
+ * valid because zero-padded ISO dates sort lexicographically.
+ */
+export function getStoreClosure(date: string): StoreClosure | null {
+  for (const c of STORE_CLOSURES) {
+    if (date >= c.from && date <= c.to) return c;
+  }
+  return null;
+}
+
+/** True when the store is closed (vacation/holiday) on the given ET date. */
+export function isStoreClosed(date: string): boolean {
+  return getStoreClosure(date) !== null;
+}
+
 export const STORE_ADDRESS = '4054 W Penn Ave, Sinking Spring, PA 19608';
 export const STORE_PHONE = '(484) 760-0475';
 export const STORE_NAME = 'Mayller Bridal Italian Style';
