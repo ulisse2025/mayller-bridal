@@ -9,7 +9,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { CallRecord, CallResponse, ReplyResponse, SmsRecord, SofiaCall } from '@/lib/phone/types';
+import type { CallRecord, CallResponse, MediaItem, ReplyResponse, SmsRecord, SofiaCall } from '@/lib/phone/types';
 import { formatDateTimeET, formatDuration, formatPhone } from '@/lib/phone/format';
 import { authedPost } from './api';
 
@@ -190,6 +190,45 @@ export function CallCard({ c, password }: { c: CallRecord; password: string }) {
   );
 }
 
+// Renders MMS attachments inline. Photos show as thumbnails that open
+// full-size in a new tab; non-image files (e.g. PDF) show as links.
+// The admin password is appended to each proxy URL so the browser can
+// load it in an <img>/<a> without custom headers.
+function MediaGallery({ media, numMedia, password }: { media: MediaItem[]; numMedia: number; password: string }) {
+  if (numMedia === 0) return null;
+  if (media.length === 0) return null; // count shown in the meta row as a fallback
+
+  const withPw = (path: string) => `${path}&pw=${encodeURIComponent(password)}`;
+
+  return (
+    <div className="mt-2.5 flex flex-wrap gap-2">
+      {media.map((md) =>
+        md.isImage ? (
+          <a key={md.sid} href={withPw(md.path)} target="_blank" rel="noreferrer" title="Open full size">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={withPw(md.path)}
+              alt="MMS attachment"
+              loading="lazy"
+              className="h-28 w-28 object-cover rounded border border-white/10 hover:border-amber-400/40 transition-colors"
+            />
+          </a>
+        ) : (
+          <a
+            key={md.sid}
+            href={withPw(md.path)}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center px-3 py-2 rounded border border-white/10 hover:border-amber-400/40 text-amber-300/80 hover:text-amber-300 text-[11px] tracking-wider uppercase transition-colors"
+          >
+            {md.contentType || 'attachment'}
+          </a>
+        ),
+      )}
+    </div>
+  );
+}
+
 export function SmsCard({ m, password }: { m: SmsRecord; password: string }) {
   const inbound = m.direction === 'inbound';
   const other = inbound ? m.from : m.to;
@@ -205,9 +244,12 @@ export function SmsCard({ m, password }: { m: SmsRecord; password: string }) {
       <p className="text-white/70 text-sm mt-2 leading-relaxed whitespace-pre-wrap break-words">
         {m.body || <span className="text-white/25">(no text)</span>}
       </p>
+      <MediaGallery media={m.media} numMedia={m.numMedia} password={password} />
       <div className="flex items-center gap-4 mt-2 flex-wrap">
         <StatusPill status={m.status} />
-        {m.numMedia > 0 && <span className="text-white/35 text-[10px] tracking-wider uppercase">{m.numMedia} media</span>}
+        {m.numMedia > 0 && m.media.length === 0 && (
+          <span className="text-white/35 text-[10px] tracking-wider uppercase">{m.numMedia} media</span>
+        )}
         <CallButton number={other} password={password} />
         <ReplyBox to={other} password={password} />
       </div>
