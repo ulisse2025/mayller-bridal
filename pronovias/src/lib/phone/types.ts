@@ -18,6 +18,16 @@ export interface CallRecord {
   startedAt: string | null; // ISO 8601 (UTC)
 }
 
+// One MMS attachment (photo/file) on a message.
+export interface MediaItem {
+  sid: string;
+  contentType: string; // e.g. image/jpeg, image/png, application/pdf
+  isImage: boolean; // true => render as a thumbnail in the dashboard
+  // Auth-gated proxy path WITHOUT the password. The client appends
+  // `&pw=<admin password>` so it can be used directly in an <img src>.
+  path: string; // /api/admin/phone/media?message=MMxxx&media=MExxx
+}
+
 export interface SmsRecord {
   sid: string;
   from: string;
@@ -26,6 +36,7 @@ export interface SmsRecord {
   direction: CallDirection;
   status: string; // delivered, sent, received, failed, undelivered, ...
   numMedia: number;
+  media: MediaItem[]; // attachments for MMS (empty for plain SMS)
   sentAt: string | null; // ISO 8601 (UTC)
 }
 

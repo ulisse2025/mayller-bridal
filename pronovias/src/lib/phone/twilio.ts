@@ -10,7 +10,7 @@
 // from process.env and never leave the server.
 // ============================================================
 
-import type { CallRecord, SmsRecord, Paged, CallDirection } from './types';
+import type { CallRecord, SmsRecord, MediaItem, Paged, CallDirection } from './types';
 
 const API_BASE = 'https://api.twilio.com/2010-04-01';
 const TIMEOUT_MS = 10_000;
@@ -77,6 +77,21 @@ interface TwilioMessagesPage {
   next_page_uri: string | null;
 }
 
+interface TwilioMediaRaw {
+  sid: string;
+  content_type: string | null;
+}
+interface TwilioMediaPage {
+  media_list: TwilioMediaRaw[];
+}
+
+// Twilio resource SIDs are 34-char alphanumerics. Validate before
+// interpolating into a URL or trusting a value from the client.
+const SID_RE = /^[A-Za-z0-9]{34}$/;
+export function isValidSid(value: string): boolean {
+  return SID_RE.test(value);
+}
+
 async function twilioGet<T>(env: TwilioEnv, resource: string, params: Record<string, string>): Promise<T> {
   const qs = new URLSearchParams(params).toString();
   const url = `${API_BASE}/Accounts/${env.accountSid}/${resource}?${qs}`;
@@ -110,6 +125,23 @@ export async function listCalls(page: number, pageSize: number): Promise<Paged<C
   return { items, page, pageSize, hasMore: Boolean(data.next_page_uri) };
 }
 
+// List the media (photos/files) attached to one MMS message and map
+// each to an auth-gated proxy path the dashboard can render directly.
+async function listMedia(env: TwilioEnv, messageSid: string): Promise<MediaItem[]> {
+  const data = await twilioGet<TwilioMediaPage>(env, `Messages/${messageSid}/Media.json`, {
+    PageSize: '50',
+  });
+  return (data.media_list ?? []).map((md) => {
+    const contentType = md.content_type ?? 'application/octet-stream';
+    return {
+      sid: md.sid,
+      contentType,
+      isImage: contentType.startsWith('image/'),
+      path: `/api/admin/phone/media?message=${encodeURIComponent(messageSid)}&media=${encodeURIComponent(md.sid)}`,
+    };
+  });
+}
+
 export async function listMessages(page: number, pageSize: number): Promise<Paged<SmsRecord>> {
   const env = getEnv();
   const data = await twilioGet<TwilioMessagesPage>(env, 'Messages.json', {
@@ -124,7 +156,51 @@ export async function listMessages(page: number, pageSize: number): Promise<Page
     direction: normalizeDirection(m.direction),
     status: m.status,
     numMedia: m.num_media ? Number.parseInt(m.num_media, 10) || 0 : 0,
+    media: [],
     sentAt: toIso(m.date_sent) ?? toIso(m.date_created),
   }));
+
+  // Enrich only the MMS messages with their media. Best-effort: a media
+  // lookup failure must not blank the whole SMS log, so it degrades to
+  // the numMedia count alone.
+  await Promise.all(
+    items
+      .filter((m) => m.numMedia > 0)
+      .map(async (m) => {
+        try {
+          m.media = await listMedia(env, m.sid);
+        } catch {
+          m.media = [];
+        }
+      }),
+  );
+
   return { items, page, pageSize, hasMore: Boolean(data.next_page_uri) };
+}
+
+// Fetch the raw bytes of one media attachment. The /Media/{sid} endpoint
+// (no .json) 307-redirects to a pre-signed CDN URL; Node's fetch drops the
+// Authorization header on that cross-origin hop, so credentials never leak
+// to the CDN. Caller (the proxy route) must already be admin-authorized.
+export async function fetchMediaBinary(
+  messageSid: string,
+  mediaSid: string,
+): Promise<{ body: ArrayBuffer; contentType: string }> {
+  if (!isValidSid(messageSid) || !isValidSid(mediaSid)) {
+    throw new Error('Invalid media identifier');
+  }
+  const env = getEnv();
+  const url = `${API_BASE}/Accounts/${env.accountSid}/Messages/${messageSid}/Media/${mediaSid}`;
+  const resp = await fetch(url, {
+    headers: { Authorization: authHeader(env) },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    cache: 'no-store',
+    redirect: 'follow',
+  });
+  if (!resp.ok) {
+    throw new Error(`Twilio media HTTP ${resp.status}`);
+  }
+  const body = await resp.arrayBuffer();
+  const contentType = resp.headers.get('content-type') ?? 'application/octet-stream';
+  return { body, contentType };
 }
