@@ -106,6 +106,8 @@ export default function AdminPage() {
           <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
         </div>
         <div className="flex items-center gap-5">
+          <Link href="/admin/crm" className="text-white/30 text-xs tracking-widest hover:text-white transition-colors">CRM</Link>
+          <Link href="/admin/phone" className="text-white/30 text-xs tracking-widest hover:text-white transition-colors">Phone</Link>
           <Link href="/" className="text-white/30 text-xs tracking-widest hover:text-white transition-colors">View Site</Link>
           <button onClick={logout} className="text-white/20 text-xs tracking-widest hover:text-red-400 transition-colors">Sign Out</button>
         </div>
