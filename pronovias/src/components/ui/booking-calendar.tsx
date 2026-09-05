@@ -133,6 +133,9 @@ export function BookingCalendar() {
   const [calYear, setCalYear] = useState(today.getFullYear())
   const [calMonth, setCalMonth] = useState(today.getMonth())
   const [bookedSlots, setBookedSlots] = useState<string[]>([])
+  // Duration-aware list from /api/bookings/availability (same slots Sofia
+  // offers). Null = the calendar lookup failed, fall back to bookedSlots.
+  const [availableSlots, setAvailableSlots] = useState<string[] | null>(null)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -181,17 +184,23 @@ export function BookingCalendar() {
     setForm(f => ({ ...f, date: iso, time: '' }))
     setLoadingSlots(true)
     try {
-      const res = await fetch(`/api/bookings/availability?date=${iso}`)
+      const res = await fetch(`/api/bookings/availability?date=${iso}&service=${encodeURIComponent(form.service)}`)
       const data = await res.json()
       setBookedSlots(data.booked || [])
+      setAvailableSlots(Array.isArray(data.available) ? data.available : null)
     } catch {
       setBookedSlots([])
+      setAvailableSlots(null)
     } finally {
       setLoadingSlots(false)
     }
-  }, [])
+  }, [form.service])
 
-  const isBooked = (slot: string) => bookedSlots.includes(slot)
+  // A slot is unavailable when the duration-aware list does not contain it.
+  // Without that list (lookup failed) we degrade to the exact booked times,
+  // which is what the form did before: /api/book still rejects overlaps.
+  const isBooked = (slot: string) =>
+    availableSlots ? !availableSlots.includes(slot) : bookedSlots.includes(slot)
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -207,9 +216,10 @@ export function BookingCalendar() {
         setError('This time slot was just taken. Please choose another time.')
         setStep('datetime')
         if (form.date) {
-          const r = await fetch(`/api/bookings/availability?date=${form.date}`)
+          const r = await fetch(`/api/bookings/availability?date=${form.date}&service=${encodeURIComponent(form.service)}`)
           const d = await r.json()
           setBookedSlots(d.booked || [])
+          setAvailableSlots(Array.isArray(d.available) ? d.available : null)
         }
         return
       }
@@ -225,6 +235,7 @@ export function BookingCalendar() {
   const reset = () => {
     setForm({ service: '', date: '', time: '', name: '', email: '', phone: '', notes: '', smsConsent: false })
     setBookedSlots([])
+    setAvailableSlots(null)
     setStep('service')
     setError('')
   }
@@ -280,7 +291,7 @@ export function BookingCalendar() {
           <p className="text-xs tracking-[0.25em] uppercase text-white/40 text-center mb-8">Choose your appointment type</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
             {SERVICES.map((svc) => (
-              <button key={svc.id} onClick={() => { setForm(f => ({ ...f, service: svc.id, date: '', time: '' })); setBookedSlots([]); setStep('datetime') }} className={cn('relative p-8 border text-left transition-all duration-300 group', form.service === svc.id ? 'border-amber-400/70 bg-amber-400/5' : 'border-white/15 hover:border-white/40 bg-white/[0.02] hover:bg-white/[0.04]')}>
+              <button key={svc.id} onClick={() => { setForm(f => ({ ...f, service: svc.id, date: '', time: '' })); setBookedSlots([]); setAvailableSlots(null); setStep('datetime') }} className={cn('relative p-8 border text-left transition-all duration-300 group', form.service === svc.id ? 'border-amber-400/70 bg-amber-400/5' : 'border-white/15 hover:border-white/40 bg-white/[0.02] hover:bg-white/[0.04]')}>
                 <div className="absolute top-4 right-4 w-5 h-5 rounded-full border border-amber-400/30 group-hover:border-amber-400/60 flex items-center justify-center transition-all">
                   <div className={cn('w-2 h-2 rounded-full transition-all', form.service === svc.id ? 'bg-amber-400' : 'bg-transparent')} />
                 </div>
@@ -359,7 +370,7 @@ export function BookingCalendar() {
                       </div>
                     </>
                   )}
-                  {bookedSlots.length >= allSlotsShown.length && allSlotsShown.length > 0 && (<p className="mt-4 text-amber-300/60 text-xs tracking-wider">All slots are booked for this day. Please select another date.</p>)}
+                  {allSlotsShown.length > 0 && allSlotsShown.every(isBooked) && (<p className="mt-4 text-amber-300/60 text-xs tracking-wider">All slots are booked for this day. Please select another date.</p>)}
                 </>
               )
             ) : (
