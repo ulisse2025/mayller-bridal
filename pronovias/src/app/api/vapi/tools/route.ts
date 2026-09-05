@@ -21,6 +21,8 @@ import {
   normalizeAppointmentType,
   formatDate,
   getStoreClosure,
+  isServiceAvailableOnDate,
+  isSaturdayDate,
   STORE_PHONE,
   STORE_ADDRESS,
 } from '@/lib/booking-types';
@@ -187,6 +189,12 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
         return `Today is ${today}. Our boutique is closed from ${formatDate(closure.from)} through ${formatDate(closure.to)} for our ${closure.reason.toLowerCase()}. We reopen on ${formatDate(nextDayISO(closure.to))}. Would you like to pick a date before or after our closure?`;
       }
 
+      // Saturday: we only take wedding dress consultations and tuxedo
+      // fittings (single source of truth: SATURDAY_SERVICES in booking-types.ts).
+      if (!isServiceAvailableOnDate(normalizedDate, type)) {
+        return `Today is ${today}. On Saturdays we only offer wedding dress consultations and tuxedo fittings, so a ${config.label} is not available on ${formatDate(normalizedDate)}. We can book that Monday through Friday. Which weekday works for you?`;
+      }
+
       const [year, month, day] = normalizedDate.split('-').map(Number);
       const dateObj = new Date(year, month - 1, day);
       const dow = dateObj.getDay();
@@ -272,6 +280,14 @@ async function handleCreateBooking(
 
   const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
   const config = APPOINTMENT_CONFIG[type];
+
+  // -- Saturday: wedding dress and tuxedo fitting only --------
+  // Backend guard mirroring getAvailableSlots (single source of truth:
+  // SATURDAY_SERVICES in booking-types.ts).
+  if (!isServiceAvailableOnDate(date, type)) {
+    console.warn('[create_booking] Service not offered on this weekday:', type, date);
+    return `I am sorry, on Saturdays we only offer wedding dress consultations and tuxedo fittings. A ${config.label} can be booked Monday through Friday. Which weekday works best for you?`;
+  }
 
   // -- Validate time format and business hours ----------------
   console.log('[create_booking] Raw time received from Vapi:', JSON.stringify(time));
@@ -548,6 +564,10 @@ async function handleRescheduleBooking(
             ? `I'm so sorry, but our boutique is closed from ${formatDate(cl.from)} through ${formatDate(cl.to)} for our ${cl.reason.toLowerCase()}. We reopen on ${formatDate(nextDayISO(cl.to))}. Would you like to pick a date before or after our closure?`
             : `I'm sorry, but we're closed on ${formatDate(newDate)}. Would you like to choose a different date?`;
         }
+        case 'service-not-available':
+          return isSaturdayDate(newDate)
+            ? `I am sorry, on Saturdays we only offer wedding dress consultations and tuxedo fittings. That appointment can be moved to any day Monday through Friday. Which weekday works for you?`
+            : `I am sorry, that appointment cannot be booked on ${formatDate(newDate)}. Would you like to choose a different date?`;
         case 'invalid-time':
           return `That time is outside our business hours (10:00 AM to 6:00 PM Eastern, Monday through Saturday). What time within those hours works for you?`;
         default:
