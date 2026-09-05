@@ -41,19 +41,56 @@ export const BUSINESS_HOURS = {
   slotIncrement: 30,
 } as const;
 
-// ── Seasonal lunch break (single source of truth) ─────────────
-// Summer (June 1 – August 31, every year): lunch 12:00 PM – 1:00 PM.
-//   → last starts: Alteration 11:30 AM, Tuxedo 11:00 AM, Wedding 10:30 AM;
-//     afternoon resumes at 1:00 PM.
-// Rest of the year: lunch 1:00 PM – 2:00 PM (historical schedule).
-// RULE: no appointment may OVERLAP the lunch break. Used by BOTH the
-// website booking form (booking-calendar.tsx) and Sofia (vapi-calendar.ts).
+// ── Lunch break — REMOVED (5 September 2026) ──────────────────
+// The boutique no longer closes for lunch. Appointments start every 30
+// minutes from 10:00 AM to 6:00 PM ET, all year round, for every service —
+// so the 12:30 PM slot (and 1:00 / 1:30 PM) is now bookable.
+//
+// The function is KEPT and returns an EMPTY window on purpose: the overlap
+// test in vapi-calendar.ts and booking-calendar.tsx stays untouched, and with
+// startMin === endMin === 0 no slot can ever overlap it. To bring a lunch
+// break back, just return a real window here — both the website and Sofia
+// pick it up automatically, with no other file to edit.
+//   Previous rule (for reference): summer Jun–Aug 12:00–13:00, otherwise 13:00–14:00.
 export function getLunchBreak(date: string): { startMin: number; endMin: number } {
-  const month = parseInt(date.split('-')[1] ?? '0', 10); // 1-12
-  const isSummer = month >= 6 && month <= 8;
-  return isSummer
-    ? { startMin: 12 * 60, endMin: 13 * 60 }
-    : { startMin: 13 * 60, endMin: 14 * 60 };
+  void date; // no seasonal rule anymore — kept for signature compatibility
+  return { startMin: 0, endMin: 0 };
+}
+
+// ── Saturday rule (single source of truth) ────────────────────
+// On Saturdays the boutique only takes Wedding Dress Consultations and
+// Tuxedo Fittings — no alterations. Last start stays 2:00 PM.
+// Used by BOTH the website (booking-calendar.tsx + /api/book) and Sofia
+// (vapi-calendar.ts + /api/vapi/tools) so the two channels never drift.
+export const SATURDAY_LAST_START_MIN = 14 * 60; // 2:00 PM
+
+export const SATURDAY_SERVICES: AppointmentType[] = [
+  'wedding_consultation',
+  'tuxedo_fitting',
+];
+
+/** Day of week (0 = Sunday … 6 = Saturday) for a YYYY-MM-DD ET date. */
+export function dayOfWeekFor(date: string): number {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+/** True when the given YYYY-MM-DD ET date is a Saturday. */
+export function isSaturdayDate(date: string): boolean {
+  return dayOfWeekFor(date) === 6;
+}
+
+/**
+ * Can this appointment type be booked on this date?
+ * Only rule today: Saturday accepts SATURDAY_SERVICES only. Opening hours,
+ * closures and slot availability are checked separately.
+ */
+export function isServiceAvailableOnDate(
+  date: string,
+  type: AppointmentType,
+): boolean {
+  if (!isSaturdayDate(date)) return true;
+  return SATURDAY_SERVICES.includes(type);
 }
 
 // ── Store closures (vacations / holidays) ─────────────────────
