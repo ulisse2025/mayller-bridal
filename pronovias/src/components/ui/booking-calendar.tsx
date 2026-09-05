@@ -2,16 +2,24 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { getLunchBreak, isStoreClosed, STORE_CLOSURES } from '@/lib/booking-types'
+import {
+  getLunchBreak,
+  isStoreClosed,
+  isServiceAvailableOnDate,
+  normalizeAppointmentType,
+  SATURDAY_LAST_START_MIN,
+  STORE_CLOSURES,
+} from '@/lib/booking-types'
 
 const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const DAYS_EN = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 
-// Service-aware time slots — generated from the SAME seasonal rule Sofia uses
-// (getLunchBreak in booking-types.ts): starts every 30 minutes within business
-// hours (10 AM – 6 PM), and no appointment may overlap the lunch break.
-// Summer (Jun–Aug): lunch 12:00–1:00 PM → last starts: Alteration 11:30,
-// Tuxedo 11:00, Wedding 10:30. Rest of the year: lunch 1:00–2:00 PM.
+// Service-aware time slots — generated from the SAME rule Sofia uses:
+// starts every 30 minutes within business hours (10 AM – 6 PM), all year.
+// The lunch break was removed on 5 September 2026, so 12:30 PM (and 1:00 /
+// 1:30 PM) are bookable for every service. getLunchBreak is still consulted
+// — it returns an empty window today — so if a break is ever reinstated in
+// booking-types.ts the website picks it up with no change here.
 const SERVICE_DURATION: Record<string, number> = {
   alteration: 30,
   wedding: 90,
@@ -20,6 +28,7 @@ const SERVICE_DURATION: Record<string, number> = {
 
 const OPEN_MIN = 10 * 60 // 10:00 AM
 const CLOSE_MIN = 18 * 60 // 6:00 PM
+const NOON_MIN = 12 * 60 // 12:00 PM — morning/afternoon divider in the UI
 
 function formatSlotLabel(min: number): string {
   let h = Math.floor(min / 60)
@@ -32,20 +41,23 @@ function formatSlotLabel(min: number): string {
 
 function getSlotsForService(service: string, dateISO: string): { am: string[]; pm: string[] } {
   const duration = SERVICE_DURATION[service] ?? 30
-  const lunch = dateISO ? getLunchBreak(dateISO) : { startMin: 13 * 60, endMin: 14 * 60 }
+  const lunch = getLunchBreak(dateISO)
   const am: string[] = []
   const pm: string[] = []
   for (let start = OPEN_MIN; start + duration <= CLOSE_MIN; start += 30) {
-    // No slot may overlap the lunch break.
-    if (start < lunch.endMin && start + duration > lunch.startMin) continue
-    if (start < lunch.startMin) am.push(formatSlotLabel(start))
+    // No slot may overlap the lunch break (empty window today = never skips).
+    if (lunch.endMin > lunch.startMin && start < lunch.endMin && start + duration > lunch.startMin) continue
+    // Morning / afternoon split is purely visual: noon.
+    if (start < NOON_MIN) am.push(formatSlotLabel(start))
     else pm.push(formatSlotLabel(start))
   }
   return { am, pm }
 }
 
-// Saturday rule: bookings accepted only up to a 2:00 PM start, not beyond.
-const SAT_LAST_START_MIN = 14 * 60 // 14:00
+// Saturday rule: bookings accepted only up to a 2:00 PM start, not beyond,
+// and only for Wedding Dress / Tuxedo Fitting. Single source of truth for
+// both rules: booking-types.ts (SATURDAY_LAST_START_MIN, SATURDAY_SERVICES).
+const SAT_LAST_START_MIN = SATURDAY_LAST_START_MIN
 
 function slotStartMinutes(s: string): number {
   const mt = s.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
@@ -82,14 +94,19 @@ function toISO(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-function isDateAvailable(date: Date): boolean {
+function isDateAvailable(date: Date, service: string): boolean {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const day = date.getDay()
   if (date < today || day === 0) return false
+  const iso = toISO(date)
   // Store closed for vacation/holiday (single source of truth: STORE_CLOSURES
   // in booking-types.ts) — these dates are greyed out and not selectable.
-  if (isStoreClosed(toISO(date))) return false
+  if (isStoreClosed(iso)) return false
+  // Saturday takes Wedding Dress and Tuxedo Fitting only (single source of
+  // truth: SATURDAY_SERVICES in booking-types.ts), so Saturdays are greyed
+  // out when the customer picked an Alteration.
+  if (service && !isServiceAvailableOnDate(iso, normalizeAppointmentType(service))) return false
   return true
 }
 
@@ -263,7 +280,7 @@ export function BookingCalendar() {
           <p className="text-xs tracking-[0.25em] uppercase text-white/40 text-center mb-8">Choose your appointment type</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
             {SERVICES.map((svc) => (
-              <button key={svc.id} onClick={() => { setForm(f => ({ ...f, service: svc.id })); setStep('datetime') }} className={cn('relative p-8 border text-left transition-all duration-300 group', form.service === svc.id ? 'border-amber-400/70 bg-amber-400/5' : 'border-white/15 hover:border-white/40 bg-white/[0.02] hover:bg-white/[0.04]')}>
+              <button key={svc.id} onClick={() => { setForm(f => ({ ...f, service: svc.id, date: '', time: '' })); setBookedSlots([]); setStep('datetime') }} className={cn('relative p-8 border text-left transition-all duration-300 group', form.service === svc.id ? 'border-amber-400/70 bg-amber-400/5' : 'border-white/15 hover:border-white/40 bg-white/[0.02] hover:bg-white/[0.04]')}>
                 <div className="absolute top-4 right-4 w-5 h-5 rounded-full border border-amber-400/30 group-hover:border-amber-400/60 flex items-center justify-center transition-all">
                   <div className={cn('w-2 h-2 rounded-full transition-all', form.service === svc.id ? 'bg-amber-400' : 'bg-transparent')} />
                 </div>
@@ -292,14 +309,17 @@ export function BookingCalendar() {
               {days.map((date, i) => {
                 if (!date) return <div key={i} />
                 const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-                const available = isDateAvailable(date)
+                const available = isDateAvailable(date, form.service)
                 const selected = form.date === iso
                 return (
                   <button key={i} disabled={!available} onClick={() => selectDate(date)} className={cn('aspect-square flex items-center justify-center text-sm transition-all duration-200', selected ? 'bg-amber-400 text-black font-medium' : available ? 'text-white/80 hover:bg-white/10' : 'text-white/15 cursor-not-allowed')}>{date.getDate()}</button>
                 )
               })}
             </div>
-            <p className="text-white/20 text-xs mt-4">Open Monday-Saturday · Saturday until 2:00 PM</p>
+            <p className="text-white/20 text-xs mt-4">Open Monday-Saturday · Saturday until 2:00 PM · Saturday: Wedding Dress &amp; Tuxedo Fitting only</p>
+            {form.service === 'alteration' && (
+              <p className="text-amber-300/50 text-xs mt-1">Alterations are available Monday to Friday.</p>
+            )}
             {upcomingClosures.map((c) => (
               <p key={c.from} className="text-amber-300/50 text-xs mt-1">
                 Closed for {c.reason.toLowerCase()}: {formatSelectedDate(c.from)} to {formatSelectedDate(c.to)}

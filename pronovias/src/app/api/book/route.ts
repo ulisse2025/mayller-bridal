@@ -22,7 +22,7 @@ import nodemailer from 'nodemailer'
 import { createBookingEvent, isSlotBusyOnCalendar } from '@/lib/google-calendar'
 import { reserveSlot, releaseSlot, updateBookingExternalRef } from '@/lib/bookings'
 import { sendConfirmationSMS } from '@/lib/notifications'
-import { getStoreClosure } from '@/lib/booking-types'
+import { getStoreClosure, isServiceAvailableOnDate } from '@/lib/booking-types'
 import type { BookingResult } from '@/lib/booking-types'
 
 export const runtime = 'nodejs'
@@ -198,6 +198,16 @@ export async function POST(req: NextRequest) {
     if (closure) {
       return NextResponse.json(
         { error: `Our boutique is closed for ${closure.reason.toLowerCase()} from ${formatDate(closure.from)} through ${formatDate(closure.to)}. Please choose a date outside that period.` },
+        { status: 400 },
+      )
+    }
+
+    // 1c. Saturday: wedding dress and tuxedo fitting only. Backend guard so a
+    //     stale page or a direct POST cannot book an alteration on a Saturday.
+    //     Single source of truth: SATURDAY_SERVICES in booking-types.ts.
+    if (!isServiceAvailableOnDate(date, svc.appointmentType)) {
+      return NextResponse.json(
+        { error: `On Saturdays we only offer Wedding Dress consultations and Tuxedo Fittings. Please choose a weekday for your ${svc.label} appointment.` },
         { status: 400 },
       )
     }

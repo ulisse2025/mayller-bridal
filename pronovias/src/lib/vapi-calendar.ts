@@ -17,6 +17,8 @@ import {
   formatTime,
   getLunchBreak,
   isStoreClosed,
+  isServiceAvailableOnDate,
+  SATURDAY_LAST_START_MIN,
   STORE_NAME,
   STORE_PHONE,
   STORE_ADDRESS,
@@ -134,6 +136,11 @@ export async function getAvailableSlots(
   // in booking-types.ts — STORE_CLOSURES). No slots on a closed day.
   if (isStoreClosed(date)) return [];
 
+  // Validate: is this service offered on this weekday? Saturday takes only
+  // Wedding Dress Consultations and Tuxedo Fittings (single source of truth:
+  // SATURDAY_SERVICES in booking-types.ts). Alterations are Mon-Fri only.
+  if (!isServiceAvailableOnDate(date, appointmentType)) return [];
+
   // Build time window in Eastern Time (correctly converted to UTC)
   const timeMin = easternDate(date, BUSINESS_HOURS.start);
   const timeMax = easternDate(date, BUSINESS_HOURS.end);
@@ -156,7 +163,7 @@ export async function getAvailableSlots(
   let currentMin = BUSINESS_HOURS.start * 60; // minutes since midnight ET
   const endMin = BUSINESS_HOURS.end * 60;
   // Saturday (day 6): accept bookings only up to a 2:00 PM start, not beyond.
-  const lastStartMin = dayOfWeek === 6 ? 14 * 60 : endMin - config.duration;
+  const lastStartMin = dayOfWeek === 6 ? SATURDAY_LAST_START_MIN : endMin - config.duration;
   // Lunch break (seasonal — single source of truth in booking-types.ts):
   // no slot may overlap it.
   const lunch = getLunchBreak(date);
@@ -584,7 +591,13 @@ export async function rescheduleBookingById(
   newTime: string,
 ): Promise<{
   success: boolean;
-  reason?: 'not-found' | 'slot-busy' | 'invalid-time' | 'closed' | 'error';
+  reason?:
+    | 'not-found'
+    | 'slot-busy'
+    | 'invalid-time'
+    | 'closed'
+    | 'service-not-available'
+    | 'error';
   customerName?: string;
   customerPhone?: string;
   previousStart?: string;
@@ -646,11 +659,16 @@ export async function rescheduleBookingById(
   if (isStoreClosed(newDate)) {
     return { success: false, reason: 'closed' };
   }
+  // Saturday (day 6): only Wedding Dress and Tuxedo Fitting are offered
+  // (single source of truth: SATURDAY_SERVICES in booking-types.ts).
+  if (!isServiceAvailableOnDate(newDate, apptType)) {
+    return { success: false, reason: 'service-not-available' };
+  }
   // Saturday (day 6): no appointment may start after 2:00 PM.
   {
     const [ry, rm, rd] = newDate.split('-').map(Number);
     const newDow = new Date(ry, rm - 1, rd).getDay();
-    if (newDow === 6 && (parsed.hours * 60 + parsed.minutes) > 14 * 60) {
+    if (newDow === 6 && (parsed.hours * 60 + parsed.minutes) > SATURDAY_LAST_START_MIN) {
       return { success: false, reason: 'invalid-time' };
     }
   }
