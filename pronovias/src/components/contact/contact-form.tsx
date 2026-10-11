@@ -20,7 +20,8 @@ export function ContactForm() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        // L'API richiede subject: se il campo facoltativo e' vuoto mandiamo un default
+        body: JSON.stringify({ ...form, subject: form.subject.trim() || 'General inquiry' }),
       })
       setStatus(res.ok ? 'sent' : 'error')
       if (res.ok) setForm({ name: '', email: '', subject: '', message: '' })
@@ -47,6 +48,8 @@ export function ContactForm() {
     <form onSubmit={submit} className="mt-4 space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <input
+          id="contact-name"
+          name="name"
           type="text"
           required
           placeholder="Your name *"
@@ -56,6 +59,8 @@ export function ContactForm() {
           className={inputCls}
         />
         <input
+          id="contact-email"
+          name="email"
           type="email"
           required
           placeholder="Email *"
@@ -66,6 +71,8 @@ export function ContactForm() {
         />
       </div>
       <input
+        id="contact-subject"
+        name="subject"
         type="text"
         placeholder="Subject"
         value={form.subject}
@@ -73,6 +80,8 @@ export function ContactForm() {
         className={inputCls}
       />
       <textarea
+        id="contact-message"
+        name="message"
         required
         placeholder="Your message *"
         rows={5}
