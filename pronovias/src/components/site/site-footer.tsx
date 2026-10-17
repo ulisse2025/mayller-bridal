@@ -77,8 +77,8 @@ export function SiteFooter() {
             <h3 className="text-[11px] uppercase tracking-[0.3em] text-ivory">Hours</h3>
             <ul className="mt-5 space-y-3 text-sm">
               <li>Monday – Friday · 10 AM – 6 PM</li>
-              <li>Saturday · 10 AM – 6 PM</li>
-              <li className="text-xs text-[#9a917f]">(Saturday appointments start by 2 PM)</li>
+              <li>Saturday · 10 AM – 2 PM</li>
+              <li className="text-xs text-[#9a917f]">(Last Saturday appointment at 2 PM)</li>
               <li>Sunday · Closed</li>
             </ul>
             <p className="mt-5 text-xs text-[#9a917f]">Private appointments only.</p>
