@@ -135,7 +135,7 @@ function handleGetCurrentDatetime(): string {
   return (
     `Current date and time in Eastern Time: ${humanDate}. ` +
     `ISO date for booking requests: ${isoDate}. ` +
-    `Business hours: Monday-Saturday, 10:00 AM to 6:00 PM Eastern.`
+    `Business hours: Monday-Friday 10:00 AM to 6:00 PM, Saturday 10:00 AM to 2:00 PM (last Saturday appointment starts at 2:00 PM), Eastern.`
   );
 }
 
@@ -200,7 +200,7 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
       const dow = dateObj.getDay();
 
       if (!BUSINESS_HOURS.openDays.includes(dow as (typeof BUSINESS_HOURS.openDays)[number])) {
-        return `Today is ${today}. We are closed on Sundays. Our boutique is open Monday through Saturday, 10:00 AM to 6:00 PM. Would you like to try a different day?`;
+        return `Today is ${today}. We are closed on Sundays. Our boutique is open Monday through Friday, 10:00 AM to 6:00 PM, and Saturday, 10:00 AM to 2:00 PM. Would you like to try a different day?`;
       }
       return `Today is ${today}. Unfortunately we have no available slots on ${formatDate(normalizedDate)} for a ${config.label}. Would you like to try another date?`;
     }
@@ -318,7 +318,7 @@ async function handleCreateBooking(
     const openFrom = `${BUSINESS_HOURS.start > 12 ? BUSINESS_HOURS.start - 12 : BUSINESS_HOURS.start}:00 ${BUSINESS_HOURS.start >= 12 ? 'PM' : 'AM'}`;
     const openTo = `${BUSINESS_HOURS.end > 12 ? BUSINESS_HOURS.end - 12 : BUSINESS_HOURS.end}:00 ${BUSINESS_HOURS.end >= 12 ? 'PM' : 'AM'}`;
     console.warn('[create_booking] Time outside business hours:', time, 'parsedHours:', parsedHours);
-    return `I'm sorry, but ${time} is outside our business hours. We're open from ${openFrom} to ${openTo} Eastern Time, Monday through Saturday. What time within those hours works for you?`;
+    return `I'm sorry, but ${time} is outside our business hours. We're open from ${openFrom} to ${openTo} Eastern Time, Monday through Friday, and until 2:00 PM on Saturday. What time within those hours works for you?`;
   }
 
   // -- Verify slot is still available (prevents overlaps across all appointment types) --
@@ -569,7 +569,7 @@ async function handleRescheduleBooking(
             ? `I am sorry, on Saturdays we only offer wedding dress consultations and tuxedo fittings. That appointment can be moved to any day Monday through Friday. Which weekday works for you?`
             : `I am sorry, that appointment cannot be booked on ${formatDate(newDate)}. Would you like to choose a different date?`;
         case 'invalid-time':
-          return `That time is outside our business hours (10:00 AM to 6:00 PM Eastern, Monday through Saturday). What time within those hours works for you?`;
+          return `That time is outside our business hours (10:00 AM to 6:00 PM Eastern Monday through Friday, 10:00 AM to 2:00 PM on Saturday). What time within those hours works for you?`;
         default:
           return `I had trouble rescheduling that booking. Please call us directly at ${STORE_PHONE}.`;
       }
@@ -686,7 +686,7 @@ export async function POST(req: NextRequest) {
             messages: [
               {
                 role: 'system',
-                content: `Today's date is ${currentDateTime}. ISO date: ${isoDate}. Business hours: Monday-Saturday, 10:00 AM to 6:00 PM Eastern Time.`,
+                content: `Today's date is ${currentDateTime}. ISO date: ${isoDate}. Business hours: Monday-Friday 10:00 AM to 6:00 PM, Saturday 10:00 AM to 2:00 PM (last Saturday appointment starts at 2:00 PM), Eastern Time.`,
               },
             ],
           },

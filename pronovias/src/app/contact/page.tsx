@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 const HOURS = [
   { day: 'Monday – Friday', time: '10:00 AM – 6:00 PM' },
-  { day: 'Saturday', time: '10:00 AM – 6:00 PM (appointments start by 2 PM)' },
+  { day: 'Saturday', time: '10:00 AM – 2:00 PM (last appointment at 2 PM)' },
   { day: 'Sunday', time: 'Closed' },
 ]
 
