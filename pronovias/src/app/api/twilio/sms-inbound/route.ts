@@ -1,19 +1,25 @@
 // ============================================================
-// MAYLLER BRIDAL — Inbound SMS -> Email
+// MAYLLER BRIDAL — Inbound SMS -> private cell + Email
 // pronovias/src/app/api/twilio/sms-inbound/route.ts
 //
 // Twilio posts here when a customer texts +1 484-638-6555.
-// We email the message to the shop inbox (GMAIL_USER) with a
-// "Reply" link, and return an empty TwiML (NO auto-reply).
+// Sofia (Vapi/AI) NEVER answers these — we just relay the message:
+//   1. Forward it as a text to the private cell (SMS_FORWARD_TO,
+//      default +1 786-675-9785) via the toll-free/messaging number.
+//   2. Email it to the shop inbox (GMAIL_USER) with a "Reply" link.
+// We always return an empty TwiML (NO auto-reply to the customer).
 //
 // Auth: the webhook URL must include ?k=<SMS_WEBHOOK_KEY>.
 // Reply link points to /sms-reply (sends via toll-free once verified).
 // ============================================================
 
 import nodemailer from 'nodemailer';
+import { sendTollFreeSms } from '@/lib/phone/twilio-actions';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const PRIVATE_FORWARD_NUMBER = process.env.SMS_FORWARD_TO || '+17866759785';
 
 function baseUrl(): string {
   return (process.env.PUBLIC_BASE_URL || 'https://mayllerbridal.com').replace(/\/+$/, '');
@@ -94,6 +100,18 @@ export async function POST(req: Request): Promise<Response> {
     'Incoming SMS\nFrom: ' + from + '\nTo: ' + to + '\nReceived: ' + ts + ' ET\n\n' +
     'Message: ' + (body || '(no text)') + '\n\n' +
     'Reply: ' + replyUrl + '\n';
+
+  // --- forward to the private cell as a text (Sofia never replies here) ---
+  try {
+    const forwardBody =
+      `SMS from ${from}` +
+      (hasMedia ? ` [+${numMedia} media]` : '') +
+      `: ${body || '(no text)'}`;
+    await sendTollFreeSms(PRIVATE_FORWARD_NUMBER, forwardBody.slice(0, 1550));
+  } catch (err) {
+    console.error('[sms-inbound] forward to private cell failed:', err);
+    // Do not fail the webhook — the email below is the fallback record.
+  }
 
   // --- send via Gmail SMTP (same transport as the rest of the app) ---
   try {
