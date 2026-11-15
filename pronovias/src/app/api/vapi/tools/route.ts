@@ -41,6 +41,37 @@ export async function OPTIONS() {
   return new NextResponse(null, { headers: CORS });
 }
 
+// -- Auth -----------------------------------------------------
+// Shared secret between Vapi and this endpoint. Vapi sends it either as
+// "Authorization: Bearer <secret>" (Bearer Token credential) or as
+// "X-Vapi-Secret: <secret>" (legacy credential / inline secret).
+// If VAPI_TOOLS_SECRET is NOT set, the endpoint stays open (old behavior),
+// so this file can be deployed before the secret is configured on Vapi.
+
+function timingSafeEqualStr(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+function isAuthorized(req: NextRequest): boolean {
+  const expected = process.env.VAPI_TOOLS_SECRET?.trim();
+  if (!expected) {
+    console.warn('[vapi/tools] VAPI_TOOLS_SECRET not set - endpoint is NOT protected');
+    return true;
+  }
+  const auth = req.headers.get('authorization') ?? '';
+  const bearer = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
+  const legacy = (req.headers.get('x-vapi-secret') ?? '').trim();
+  return (
+    (bearer !== '' && timingSafeEqualStr(bearer, expected)) ||
+    (legacy !== '' && timingSafeEqualStr(legacy, expected))
+  );
+}
+
 // -- Date/Time Helpers ----------------------------------------
 
 /**
@@ -62,6 +93,18 @@ function nextDayISO(iso: string): string {
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + 1);
   return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * Spoken description of a closure. Single-day closures (holidays) read
+ * "closed on Thursday, November 26, 2026 for Thanksgiving"; multi-day
+ * closures keep the original "closed from X through Y for our ..." wording.
+ */
+function closureText(c: { from: string; to: string; reason: string }): string {
+  if (c.from === c.to) {
+    return `closed on ${formatDate(c.from)} for ${c.reason}`;
+  }
+  return `closed from ${formatDate(c.from)} through ${formatDate(c.to)} for our ${c.reason.toLowerCase()}`;
 }
 
 /**
@@ -186,7 +229,7 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
       // (a closure can fall on any day, including a Sunday).
       const closure = getStoreClosure(normalizedDate);
       if (closure) {
-        return `Today is ${today}. Our boutique is closed from ${formatDate(closure.from)} through ${formatDate(closure.to)} for our ${closure.reason.toLowerCase()}. We reopen on ${formatDate(nextDayISO(closure.to))}. Would you like to pick a date before or after our closure?`;
+        return `Today is ${today}. Our boutique is ${closureText(closure)}. We reopen on ${formatDate(nextDayISO(closure.to))}. Would you like to pick a date before or after our closure?`;
       }
 
       // Saturday: we only take wedding dress consultations and tuxedo
@@ -275,7 +318,7 @@ async function handleCreateBooking(
   const closure = getStoreClosure(date);
   if (closure) {
     console.warn('[create_booking] Attempt to book inside a closure:', date, closure.reason);
-    return `I'm so sorry, but our boutique is closed from ${formatDate(closure.from)} through ${formatDate(closure.to)} for our ${closure.reason.toLowerCase()}. We reopen on ${formatDate(nextDayISO(closure.to))}. Would you like to choose a date before or after our closure?`;
+    return `I'm so sorry, but our boutique is ${closureText(closure)}. We reopen on ${formatDate(nextDayISO(closure.to))}. Would you like to choose a date before or after our closure?`;
   }
 
   const type: AppointmentType = normalizeAppointmentType(appointment_type || 'wedding_consultation');
@@ -561,7 +604,7 @@ async function handleRescheduleBooking(
         case 'closed': {
           const cl = getStoreClosure(newDate);
           return cl
-            ? `I'm so sorry, but our boutique is closed from ${formatDate(cl.from)} through ${formatDate(cl.to)} for our ${cl.reason.toLowerCase()}. We reopen on ${formatDate(nextDayISO(cl.to))}. Would you like to pick a date before or after our closure?`
+            ? `I'm so sorry, but our boutique is ${closureText(cl)}. We reopen on ${formatDate(nextDayISO(cl.to))}. Would you like to pick a date before or after our closure?`
             : `I'm sorry, but we're closed on ${formatDate(newDate)}. Would you like to choose a different date?`;
         }
         case 'service-not-available':
@@ -658,6 +701,14 @@ async function handleLeaveMessage(
 // -- Route Handler --------------------------------------------
 
 export async function POST(req: NextRequest) {
+  if (!isAuthorized(req)) {
+    console.warn('[vapi/tools] Rejected request: missing or wrong secret');
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: CORS }
+    );
+  }
+
   let rawBody = '';
   try {
     rawBody = await req.text();
