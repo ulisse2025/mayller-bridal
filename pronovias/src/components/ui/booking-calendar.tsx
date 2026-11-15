@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { captureAttribution, readAttribution, trackBookingCompleted } from '@/lib/attribution'
 import { cn } from '@/lib/utils'
 import {
   getLunchBreak,
@@ -205,11 +206,13 @@ export function BookingCalendar() {
   const handleSubmit = async () => {
     setLoading(true)
     setError('')
+    captureAttribution()
+    const attribution = readAttribution()
     try {
       const res = await fetch('/api/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, ...attribution }),
       })
       const data = await res.json()
       if (res.status === 409) {
@@ -225,6 +228,8 @@ export function BookingCalendar() {
       }
       if (!res.ok) throw new Error(data.error || 'Unknown error')
       setStep('done')
+      // Only a confirmed booking counts. A failed response never reaches here.
+      if (data?.success === true) trackBookingCompleted(form.service)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
     } finally {

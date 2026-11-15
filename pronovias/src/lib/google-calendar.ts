@@ -26,6 +26,7 @@
 
 import { google } from 'googleapis'
 import { randomUUID } from 'crypto'
+import { formatChannelSourceLine, formatReferrerLine, type Attribution } from '@/lib/attribution'
 const TIMEZONE = 'America/New_York'
 
 const DURATION_MINUTES: Record<string, number> = {
@@ -179,6 +180,8 @@ export async function createBookingEvent(data: {
      * and any human operator can look it up and manage the booking.
      */
                                            bookingId?: number
+    /** Campaign labels from the website session. Omitted for older retries. */
+    attribution?: Attribution
 }): Promise<{ created: boolean; eventId?: string; reason?: string ; shortBookingId?: string }> {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL
     const privateKey = process.env.GOOGLE_PRIVATE_KEY
@@ -219,6 +222,8 @@ export async function createBookingEvent(data: {
               '',
               data.bookingId ? `Booking ID: ${data.bookingId}` : null,
               `Source: web (mayllerbridal.com)`,
+              formatChannelSourceLine(data.attribution),
+              formatReferrerLine(data.attribution),
               data.bookingId ? idTag : null,
             ].filter(Boolean).join('\n')
 

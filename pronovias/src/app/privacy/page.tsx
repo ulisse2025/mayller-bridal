@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     <main className="max-w-3xl mx-auto px-6 py-24 text-white/80">
       <p className="text-amber-300/60 text-xs tracking-[0.35em] uppercase mb-4">Mayller Bridal Italian Style</p>
       <h1 className="text-4xl font-light text-white tracking-widest mb-2">Privacy Policy</h1>
-      <p className="text-white/40 text-sm mb-12">Last updated: May 31, 2026</p>
+      <p className="text-white/40 text-sm mb-12">Last updated: November 15, 2026</p>
 
       <div className="space-y-8 text-sm leading-relaxed">
         <p>
@@ -61,6 +61,22 @@ export default function PrivacyPage() {
           <p>
             We use your information solely to provide and manage our services and to communicate with you
             about your appointments. We do not sell your personal information.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-lg font-light text-white tracking-wide mb-3">Website Analytics</h2>
+          <p>
+            When analytics is turned on for this website, we use Google Analytics and the Meta Pixel to
+            understand how visitors use mayllerbridal.com and to count completed online appointment
+            bookings by marketing channel. These tools may set cookies and collect pages viewed, device
+            and browser information, approximate location, and the campaign parameters in the link that
+            brought you here. After an online booking is confirmed, we send a conversion event that
+            includes only the appointment type and those channel details. We do not send your name, email
+            address, phone number, or appointment notes to Google Analytics or Meta. Appointments booked
+            by phone are not tracked with these website cookies. You can control or block cookies in your
+            browser settings. Mobile opt-in information from our SMS program, described above, is not
+            shared with these analytics tools.
           </p>
         </section>
 

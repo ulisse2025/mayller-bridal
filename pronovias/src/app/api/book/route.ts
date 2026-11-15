@@ -24,6 +24,7 @@ import { reserveSlot, releaseSlot, updateBookingExternalRef } from '@/lib/bookin
 import { sendConfirmationSMS } from '@/lib/notifications'
 import { getStoreClosure, isServiceAvailableOnDate } from '@/lib/booking-types'
 import type { BookingResult } from '@/lib/booking-types'
+import { attributionFromUnknown } from '@/lib/attribution'
 
 export const runtime = 'nodejs'
 
@@ -247,12 +248,15 @@ export async function POST(req: NextRequest) {
 
     const emailData: EmailData = { service: serviceLabel, date, time, name, email, phone, notes }
 
+    // Channel labels only. They are written on the calendar event, never emailed
+    // and never sent to the customer. Missing fields stay blank.
+    const attribution = attributionFromUnknown(body)
+
     // 4. Google Calendar (best effort)
     const calResult = await createBookingEvent({
       service, date, time, name, email, phone, notes,
-            bookingId,
-
-
+      bookingId,
+      attribution,
     })
 
     if (calResult.shortBookingId) emailData.shortBookingId = calResult.shortBookingId
