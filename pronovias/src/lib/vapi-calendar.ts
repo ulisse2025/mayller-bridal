@@ -6,6 +6,7 @@
 
 import { google } from 'googleapis';
 import { deleteBookingByExternalEventId, moveBookingByExternalEventId } from '@/lib/bookings';
+import { phoneFromDescription } from '@/lib/description-phone';
 import { randomUUID } from 'crypto';
 import {
   AppointmentType,
@@ -246,6 +247,7 @@ export async function createBooking(req: BookingRequest): Promise<BookingResult>
     req.notes ? `📝 ${req.notes}` : null,
     ``,
     `🤖 Booked by: Sofia AI — ${STORE_NAME}`,
+    `Source: phone (Sofia)`,
     `📞 Store: ${STORE_PHONE}`,
     `📍 ${STORE_ADDRESS}`,
     ``,
@@ -484,9 +486,7 @@ function toSearchResult(ev: CalendarEvent): BookingSearchResult | null {
   // Phone fallback: scrape from description ("Phone: ...") for manual events.
   let phoneFallback = props.customerPhone || '';
   if (!phoneFallback) {
-    const desc = ev.description || '';
-    const phoneMatch = desc.match(/(?:Phone|Tel|Telephone|Cell|Mobile)[:\s]+([+\d\s\-().]+)/i);
-    if (phoneMatch) phoneFallback = phoneMatch[1].trim();
+    phoneFallback = phoneFromDescription(ev.description || '');
   }
 
   // Name fallback: try summary tail, then attendee, then "Unknown"

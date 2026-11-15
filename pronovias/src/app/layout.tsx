@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Cormorant_Garamond, Jost } from "next/font/google"
 import "./globals.css"
+import { SiteAnalytics } from "@/components/analytics/site-analytics"
 import WhatsAppButton from "@/components/WhatsAppButton"
 
 const cormorant = Cormorant_Garamond({
@@ -127,6 +128,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${cormorant.variable} ${jost.variable}`}>
       <body className="antialiased">
+        <SiteAnalytics />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}

@@ -25,6 +25,7 @@
 import { google, calendar_v3 } from 'googleapis'
 import { sql } from '@vercel/postgres'
 import nodemailer, { Transporter } from 'nodemailer'
+import { phoneFromDescription } from '@/lib/description-phone'
 
 // ── time helpers ───────────────────────────────────────────────────────
 const ET_TZ = 'America/New_York'
@@ -77,8 +78,7 @@ function extractCustomer(ev: calendar_v3.Schema$Event): {
 
   // Try to extract phone from description (Sofia writes "Phone: ...")
   const desc = ev.description || ''
-  const phoneMatch = desc.match(/(?:Phone|Tel|Telephone)[:\s]+([+\d\s\-().]+)/i)
-  const phone = phoneMatch ? phoneMatch[1].trim() : ''
+  const phone = phoneFromDescription(desc)
 
   // Try to extract name if not in attendee
   let finalName = name

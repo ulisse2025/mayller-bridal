@@ -88,4 +88,10 @@ reading code to patch. When unsure, the GitHub web editor shows the true current
 
 ---
 
+## 2026-11-15 — Count online bookings by channel, leave Sofia’s path alone
+
+**Decision**: Load the GA4 gtag and the Meta Pixel only when `NEXT_PUBLIC_GA4_ID` and `NEXT_PUBLIC_META_PIXEL_ID` are set. Fire `booking_completed` and Meta `Schedule` only after `/api/book` returns `success: true`, with appointment type and UTM/referrer, never name, email, phone, or notes. Copy the same channel onto the website calendar description. Sofia’s calendar description gains one line, `Source: phone (Sofia)`. The description phone parser now requires a digit so that line cannot be stored as a phone number.
+**Why**: The boutique needs to count website bookings by campaign. Sofia books on a phone call, so a browser pixel would never see those appointments and must not be attached to her tool endpoint.
+**Consequence**: Do not move the conversion call onto the Confirm button. Do not send customer fields as event parameters. Sofia still books through `/api/vapi/tools` → `createBooking` in `vapi-calendar.ts`, not through `/api/book`. Website and phone writers stay separate; they share the calendar and the availability read.
+
 <!-- Add new dated entries above this line, newest first. -->
