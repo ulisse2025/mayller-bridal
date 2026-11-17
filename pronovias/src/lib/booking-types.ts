@@ -109,6 +109,8 @@ export interface StoreClosure {
 export const STORE_CLOSURES: StoreClosure[] = [
   // Summer vacation 2026 — closed Jul 21 through Jul 31 inclusive; reopen Aug 1.
   { from: '2026-07-21', to: '2026-07-31', reason: 'Summer vacation' },
+  // Thanksgiving 2026 — closed Thursday Nov 26 only; reopen Friday Nov 27.
+  { from: '2026-11-26', to: '2026-11-26', reason: 'Thanksgiving' },
 ];
 
 /**

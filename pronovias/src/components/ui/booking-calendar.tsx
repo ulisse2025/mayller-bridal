@@ -338,7 +338,9 @@ export function BookingCalendar() {
             )}
             {upcomingClosures.map((c) => (
               <p key={c.from} className="text-amber-300/50 text-xs mt-1">
-                Closed for {c.reason.toLowerCase()}: {formatSelectedDate(c.from)} to {formatSelectedDate(c.to)}
+                {c.from === c.to
+                  ? <>Closed {formatSelectedDate(c.from)} for {c.reason}</>
+                  : <>Closed for {c.reason.toLowerCase()}: {formatSelectedDate(c.from)} to {formatSelectedDate(c.to)}</>}
               </p>
             ))}
           </div>
