@@ -197,10 +197,12 @@ export async function POST(req: NextRequest) {
     //     of the generic "slot just taken" copy reserved for 409.
     const closure = getStoreClosure(date)
     if (closure) {
-      return NextResponse.json(
-        { error: `Our boutique is closed for ${closure.reason.toLowerCase()} from ${formatDate(closure.from)} through ${formatDate(closure.to)}. Please choose a date outside that period.` },
-        { status: 400 },
-      )
+      // Single-day closures (holidays) read "closed on <date> for Thanksgiving";
+      // multi-day closures keep the "from X through Y" wording.
+      const error = closure.from === closure.to
+        ? `Our boutique is closed on ${formatDate(closure.from)} for ${closure.reason}. Please choose another date.`
+        : `Our boutique is closed for ${closure.reason.toLowerCase()} from ${formatDate(closure.from)} through ${formatDate(closure.to)}. Please choose a date outside that period.`
+      return NextResponse.json({ error }, { status: 400 })
     }
 
     // 1c. Saturday: wedding dress and tuxedo fitting only. Backend guard so a
